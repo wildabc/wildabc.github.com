@@ -262,7 +262,15 @@ function getProgram ( gl, vs_id,fs_id ){
 	return program;
 }
 
-function createTexture(gl,id,width,height,pixels){
+function createTexture(gl,width,height,pixels){
+	if(!gl.ntextures){
+		gl.ntextures = 1;
+	}
+	else{
+		gl.ntextures++;
+	}
+	var id = gl.ntextures-1;
+
 	var texture = gl.createTexture();
 	gl.activeTexture(gl.TEXTURE0+id);
 	gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -350,8 +358,8 @@ function FluidSim(gl,width,height){
 		gl.vertexAttribPointer(aPosLoc, 2, gl.FLOAT, gl.FALSE, 16, 0);
 		gl.vertexAttribPointer(aTexLoc, 2, gl.FLOAT, gl.FALSE, 16, 8);
 
-		this.textures[0] = createTexture(gl,0,this.width,this.height,null);
-		this.textures[1] = createTexture(gl,1,this.width,this.height,null);
+		this.textures[0] = createTexture(gl,this.width,this.height,null);
+		this.textures[1] = createTexture(gl,this.width,this.height,null);
 
 		bindFramebuffer(gl,this.textures[0]);
 		bindFramebuffer(gl,this.textures[1]);
@@ -369,13 +377,13 @@ function FluidSim(gl,width,height){
 			W_N[3*i] = Math.cos(a*i);			
 			W_N[3*i+1] = Math.sin(a*i);
 		}
-		this.textures[2] = createTexture(gl,2,this.width,1,W_M);
-		this.textures[3] = createTexture(gl,3,this.height,1,W_N);
+		var textureW_M = createTexture(gl,this.width,1,W_M);
+		var textureW_N = createTexture(gl,this.height,1,W_N);
 
-		this.setUniform1i("fs-fft","W_M",2);
-		this.setUniform1i("fs-fft","W_N",3);
+		this.setSampler("fs-fft","W_M",textureW_M);
+		this.setSampler("fs-fft","W_N",textureW_N);
 
-		this.setUniform1i("fs-fftv","W_M",2);
+		this.setSampler("fs-fftv","W_M",textureW_M);
 
 		this.setTimeStep(0.01);
 	}
@@ -426,6 +434,10 @@ function FluidSim(gl,width,height){
 
 		gl.useProgram(prog);
 		gl.uniform1i(gl.getUniformLocation(prog, uniform),value);
+	}
+
+	this.setSampler = function(prog_id,sampler,texture){
+		this.setUniform1i(prog_id,sampler,texture.id);
 	}
 
 	this.runProgram = function(prog_id){
