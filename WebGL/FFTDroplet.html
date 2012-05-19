@@ -606,11 +606,15 @@ function setViscosity(){
 </head>
 
 <body onload="main();">
+	<h2>FFT-based Droplet Simulation</h2>
 	<canvas id="c" width="512" height="512"></canvas>
 	<br/>
 	Gravity:<input id="gravity" type="number" size="3" value="100" onchange="setGravity()"/>
 	Viscosity:<input id="viscosity" type="number" size="3" value="0" onchange="setViscosity()"/>
 	<button id ="toggle" onclick="toggleAnimation()">Start</button>
 	<button id ="reset" onclick="reset()">Reset</button>
-	<p id="fps">FPS:</p>
+	<p id="fps">FPS:NA</p>
+	<h3>Reference</h3>
+	<p>[1]<i>Jos Stam</i>: <a href="http://www.dgp.toronto.edu/people/stam/reality/Research/pub.html">A Simple Fluid Solver based on the FFT</a>.</p>
+	<p>[2]<i>Kenneth Moreland and Edward Angel</i>: <a href="http://www.sandia.gov/~kmorel/documents/fftgpu">The FFT on a GPU</a>.</p>
 </body>
