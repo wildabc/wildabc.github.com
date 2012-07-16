@@ -1,0 +1,432 @@
+<html><head>
+<title>2D ink droplet</title>
+
+<script id="shader-fs-show" type="x-shader/x-fragment"> 
+#ifdef GL_ES
+precision highp float;
+#endif
+  uniform sampler2D samp;
+  varying vec2 tc;
+  const float h = 1./512.;
+void main(void) {
+	if(tc.x < h || tc.y < h || tc.x > 1.0-h || tc.y > 1.0-h){
+		gl_FragColor = vec4(0.0,0.0,0.0,1.0);
+		return;
+	}
+   float rg = 1. + texture2D(samp, tc).b;
+   gl_FragColor = vec4(rg, rg, 1. + rg, 1.);
+
+   //vec4 t = texture2D(samp, tc);
+   //float f = abs(t.r - texture2D(samp, vec2(tc.r - h, tc.g)).r +
+   // 	t.g - texture2D(samp, vec2(tc.r, tc.g - h)).g)/h;
+   //gl_FragColor = vec4(vec3(f), 1.);
+}
+</script> 
+
+<script id="advec-fs" type="x-shader/x-fragment"> 
+#ifdef GL_ES
+precision highp float;
+#endif
+  uniform sampler2D samp;
+  varying vec2 tc;
+  const float h = 1./512., dt = .001, tau = dt/h;
+
+  vec4 traceback(vec2 tc , vec2 v , vec2 lb , vec2 ub){
+	  vec2 tc1 = clamp(tc - dt*v , lb , ub);
+	  //vec2 Df = floor((tc1-tc)/h);
+	  //vec2 tc1f = tc+Df*h;
+	  //vec2 Dd = (tc1-tc)/h-Df;
+	  //return (texture2D(samp, tc1f)*(1. - Dd.g) +
+	  //texture2D(samp, vec2(tc1f.r, tc1f.g + h))*Dd.g)*(1. - Dd.r) +
+	  //(texture2D(samp, vec2(tc1f.r + h, tc1f.g))*(1. - Dd.g) +
+	  //texture2D(samp, vec2(tc1f.r + h, tc1f.g + h))*Dd.g)*Dd.r;
+
+	  return texture2D(samp, tc1);
+  }
+
+void main(void) {
+	//vec2 D = -tau*vec2(
+	//  texture2D(samp, tc).r + texture2D(samp, vec2(tc.r - h, tc.g)).r,
+	//  texture2D(samp, tc).g + texture2D(samp, vec2(tc.r, tc.g - h)).g );
+	//vec2 tc1 = tc + D*h;
+	//tc1 = clamp(tc1,h,1.0-h);
+	//vec2 Df = floor((tc1-tc)/h),   Dd = (tc1-tc)/h - Df;
+	//tc1 = tc + Df*h;
+	//vec3 new =  
+	//  (texture2D(samp, tc1).rgb*(1. - Dd.g) +
+	//   texture2D(samp, vec2(tc1.r, tc1.g + h)).rgb*Dd.g)*(1. - Dd.r) +
+	//  (texture2D(samp, vec2(tc1.r + h, tc1.g)).rgb*(1. - Dd.g) +
+	//   texture2D(samp, vec2(tc1.r + h, tc1.g + h)).rgb*Dd.g)*Dd.r;
+
+	//vec4 tc1_Dd = startp(tc , .5*vec2(
+	//  texture2D(samp, tc).r + texture2D(samp, vec2(tc.r - h, tc.g)).r,
+	//texture2D(samp, tc).g + texture2D(samp, vec2(tc.r, tc.g - h)).g ),
+	//vec2(h,h) , vec2(1.-h,1.-h));
+	//vec2 tc1 = tc1_Dd.rg ; 
+	//vec2 Dd = tc1_Dd.ba;
+	//vec3 new =  
+	//  (texture2D(samp, tc1).rgb*(1. - Dd.g) +
+	//   texture2D(samp, vec2(tc1.r, tc1.g + h)).rgb*Dd.g)*(1. - Dd.r) +
+	//  (texture2D(samp, vec2(tc1.r + h, tc1.g)).rgb*(1. - Dd.g) +
+	//texture2D(samp, vec2(tc1.r + h, tc1.g + h)).rgb*Dd.g)*Dd.r;
+
+	if(tc.x < h || tc.y < h || tc.x > 1.0-h || tc.y > 1.0-h){
+		gl_FragColor = vec4(0.0,0.0,0.0,0.0);
+		return;
+	}
+
+	gl_FragColor.r = traceback(tc , vec2(
+	texture2D(samp, tc).r, texture2D(samp, tc+vec2(0.5*h,-0.5*h)).g),
+	vec2(.5*h,h) , vec2(1.-1.5*h,1.-h)).r;
+
+	gl_FragColor.g = traceback(tc , vec2(
+	texture2D(samp, tc+vec2(-0.5*h,0.5*h)).r , texture2D(samp, tc).g ),
+	vec2(h,.5*h) , vec2(1.-h,1.-1.5*h)).g;
+
+	gl_FragColor.b = traceback(tc , vec2(
+	(texture2D(samp, tc).r + texture2D(samp, vec2(tc.r - h, tc.g)).r)/2.,
+	(texture2D(samp, tc).g + texture2D(samp, vec2(tc.r, tc.g - h)).g)/2. ),
+	vec2(h,h) , vec2(1.-h,1.-h)).b;
+
+	gl_FragColor.a = traceback(tc , vec2(
+	(texture2D(samp, tc).r + texture2D(samp, vec2(tc.r - h, tc.g)).r)/2.,
+	(texture2D(samp, tc).g + texture2D(samp, vec2(tc.r, tc.g - h)).g)/2. ),
+	vec2(h,h) , vec2(1.-h,1.-h)).a;
+
+	//gl_FragColor.a = texture2D(samp, tc).a;
+
+	if(tc.x > 1.0 -2.0*h){
+		gl_FragColor.r = 0.0;
+	}
+	if(tc.y > 1.0 -2.0*h){
+		gl_FragColor.g = 0.0;
+	}
+}
+</script> 
+
+<script id="p-fs" type="x-shader/x-fragment"> 
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform sampler2D samp;
+varying vec2 tc;
+const float h = 1./512.;
+void main(void) {
+	vec4 t = texture2D(samp, tc);
+
+	if(tc.x >= h && tc.x <= 1.0-h && tc.y >= h && tc.y <= 1.0-h){
+		float pC = texture2D(samp, vec2(tc.r, tc.g)).a;
+		float pL = tc.x-h < h     ? pC : texture2D(samp, vec2(tc.r - h, tc.g)).a;
+		float pR = tc.x+h > 1.0-h ? pC : texture2D(samp, vec2(tc.r + h, tc.g)).a;
+		float pD = tc.y-h < h     ? pC : texture2D(samp, vec2(tc.r, tc.g - h)).a;
+		float pU = tc.y+h > 1.0-h ? pC : texture2D(samp, vec2(tc.r, tc.g + h)).a;
+		t.a =
+		(pL + pR + pD + pU -
+		(t.r - texture2D(samp, vec2(tc.r - h, tc.g)).r +
+		t.g - texture2D(samp, vec2(tc.r, tc.g - h)).g) *h) *.25;
+	}
+	gl_FragColor = t;
+}
+</script> 
+
+<script id="force-fs" type="x-shader/x-fragment"> 
+#ifdef GL_ES
+precision highp float;
+#endif
+  uniform sampler2D samp;
+  uniform float c;
+  varying vec2 tc;
+  const float h = 1./512.;
+void main(void) {
+   vec4 t = texture2D(samp, tc);
+   t.g += c*(t.b + texture2D(samp, vec2(tc.r, tc.g + h)).b );
+   gl_FragColor = t;
+}
+</script> 
+ 
+<script id="div-fs" type="x-shader/x-fragment"> 
+#ifdef GL_ES
+precision highp float;
+#endif
+  uniform sampler2D samp;
+  varying vec2 tc;
+  const float n = 512., h = 1./n;
+void main(void) {
+	vec4 t = texture2D(samp, tc);
+	if(tc.x < h || tc.y < h || tc.x > 1.0-h || tc.y > 1.0-h){
+		t.rg = vec2(0.0,0.0);
+		gl_FragColor = t;
+		return;
+	}
+   t.r -= (texture2D(samp, vec2(tc.r + h, tc.g)).a - t.a)*n;
+   t.g -= (texture2D(samp, vec2(tc.r, tc.g + h)).a - t.a)*n;
+   if(tc.x > 1.-2.*h){
+	   t.r = 0.;
+   }
+   if(tc.y > 1.-2.*h){
+	   t.g = 0.;
+   }
+   gl_FragColor = t;
+}
+</script> 
+ 
+<script id="shader-vs" type="x-shader/x-vertex"> 
+  attribute vec2 aPos;
+  attribute vec2 aTexCoord;
+  varying   vec2 tc;
+void main(void) {
+   gl_Position = vec4(aPos, 0., 1.);
+   tc = aTexCoord;
+}
+</script> 
+
+<script type="text/javascript">
+function getShader ( gl, id ){
+   var shaderScript = document.getElementById ( id );
+   var str = "";
+   var k = shaderScript.firstChild;
+   while ( k ){
+     if ( k.nodeType == 3 ) str += k.textContent;
+     k = k.nextSibling;
+   }
+   var shader;
+   if ( shaderScript.type == "x-shader/x-fragment" )
+           shader = gl.createShader ( gl.FRAGMENT_SHADER );
+   else if ( shaderScript.type == "x-shader/x-vertex" )
+           shader = gl.createShader(gl.VERTEX_SHADER);
+   else return null;
+   gl.shaderSource(shader, str);
+   gl.compileShader(shader);
+   if (gl.getShaderParameter(shader, gl.COMPILE_STATUS) == 0)
+      alert(id + "\n" + gl.getShaderInfoLog(shader));
+   return shader;
+}
+requestAnimFrame = (function(){
+  return  window.webkitRequestAnimationFrame ||
+    window.mozRequestAnimationFrame ||
+    function(callback, element){ window.setTimeout(callback, 1000 / 60); }
+})();
+
+var gl, prog_advec, prog_force, prog_p, prog_div, prog_show,
+    FBO, FBO1, texture, texture1,
+    timer, delay = 0, it = 10, frames = 0, time, animation,
+    n = 512, sampLoc;
+function main() {
+   var c = document.getElementById("c");
+   var err = "Your browser does not support ";
+   if (!window.WebGLRenderingContext){
+     alert(err+"WebGL. See http://get.webgl.org");
+     return;}
+   try { gl = c.getContext("experimental-webgl");
+   } catch(e) {}
+   if ( !gl ) {alert("Can't get WebGL"); return;}
+   var ext;
+   try { ext = gl.getExtension("OES_texture_float");
+   } catch(e) {}
+   if ( !ext ) {alert(err + "OES_texture_float extension"); return;}
+
+   prog_force  = gl.createProgram();
+   gl.attachShader(prog_force, getShader( gl, "shader-vs" ));
+   gl.attachShader(prog_force, getShader( gl, "force-fs" ));
+   gl.linkProgram(prog_force);
+   gl.useProgram(prog_force);
+
+   gl.uniform1f(gl.getUniformLocation(prog_force, "c"), .001*.5*10 );
+   prog_advec  = gl.createProgram();
+   gl.attachShader(prog_advec, getShader( gl, "shader-vs" ));
+   gl.attachShader(prog_advec, getShader( gl, "advec-fs" ));
+   gl.linkProgram(prog_advec);
+   prog_p  = gl.createProgram();
+   gl.attachShader(prog_p, getShader( gl, "shader-vs" ));
+   gl.attachShader(prog_p, getShader( gl, "p-fs" ));
+   gl.linkProgram(prog_p);
+   prog_div  = gl.createProgram();
+   gl.attachShader(prog_div, getShader( gl, "shader-vs" ));
+   gl.attachShader(prog_div, getShader( gl, "div-fs" ));
+   gl.linkProgram(prog_div);
+   prog_show  = gl.createProgram();
+   gl.attachShader(prog_show, getShader( gl, "shader-vs" ));
+   gl.attachShader(prog_show, getShader( gl, "shader-fs-show" ));
+   gl.linkProgram(prog_show);
+
+   gl.useProgram(prog_advec);
+   var aPosLoc = gl.getAttribLocation(prog_advec, "aPos");
+   var aTexLoc = gl.getAttribLocation(prog_advec, "aTexCoord");
+   gl.enableVertexAttribArray( aPosLoc );
+   gl.enableVertexAttribArray( aTexLoc );
+   var data = new Float32Array([-1,-1, 0,0,  1,-1, 1,0,  -1,1, 0,1,
+     1,1, 1,1]);
+   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+   gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+   gl.vertexAttribPointer(aPosLoc, 2, gl.FLOAT, gl.FALSE, 16, 0);
+   gl.vertexAttribPointer(aTexLoc, 2, gl.FLOAT, gl.FALSE, 16, 8);
+   gl.uniform1i(gl.getUniformLocation(prog_advec, "samp"), 1);
+   var pixels = [],  h = 2/n, T;
+   for(var i = 0; i<n; i++)
+     for(var j = 0; j<n; j++){
+       var x = h*(j-n/2),  y = h*(i-n/2) - .75;
+       if (x*x + y*y > .05) T = 0; else T= -2;
+       pixels.push( 0, 0, T, 0 );
+     }
+   texture = gl.createTexture();
+   gl.activeTexture(gl.TEXTURE0);
+   gl.bindTexture(gl.TEXTURE_2D, texture);
+   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, n, n, 0,
+     gl.RGBA, gl.FLOAT, new Float32Array(pixels));
+   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+   texture1 = gl.createTexture();
+   gl.activeTexture(gl.TEXTURE1);
+   gl.bindTexture(gl.TEXTURE_2D, texture1);
+   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, n, n, 0,
+     gl.RGBA, gl.FLOAT, new Float32Array(pixels));
+   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+   FBO = gl.createFramebuffer();
+   gl.bindFramebuffer(gl.FRAMEBUFFER, FBO);
+   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
+     gl.TEXTURE_2D, texture, 0);
+   if( gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE)
+     alert(err + "FLOAT as the color attachment to an FBO");
+   FBO1 = gl.createFramebuffer();
+   gl.bindFramebuffer(gl.FRAMEBUFFER, FBO1);
+   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
+       gl.TEXTURE_2D, texture1, 0);
+
+   gl.useProgram(prog_p);
+   sampLoc  = gl.getUniformLocation(prog_p, "samp");
+
+   timer = setInterval(fr, 500);
+   time = new Date().getTime();
+   animation = "animate";
+//   draw();
+   anim();
+}
+function draw(){
+   gl.bindFramebuffer(gl.FRAMEBUFFER, FBO1);
+   gl.useProgram(prog_force);
+   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+   gl.flush();
+
+   gl.bindFramebuffer(gl.FRAMEBUFFER, FBO);
+   gl.useProgram(prog_advec);
+   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+   gl.flush();
+
+   gl.useProgram(prog_p);
+   for(var i = 0; i < it; i++){
+    gl.uniform1i(sampLoc, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, FBO1);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.flush();
+
+    gl.uniform1i(sampLoc, 1);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, FBO);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.flush();
+   }
+
+   gl.useProgram(prog_div);
+   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+   gl.flush();
+
+   gl.useProgram(prog_show);
+   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+   frames++;
+}
+function anim(){
+   draw();
+   switch ( animation ){
+     case "reset":
+      var pixels = [], T, h = 2/n;
+      for(var i = 0; i<n; i++)
+       for(var j = 0; j<n; j++){
+        var x = h*(j-n/2),  y = h*(i-n/2) - .75;
+        if (x*x + y*y > .05) T = 0; else T= -2;
+        pixels.push( 0, 0, T, 0 );
+       }
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, n, n, 0,
+       gl.RGBA, gl.FLOAT, new Float32Array(pixels));
+      gl.bindTexture(gl.TEXTURE_2D, texture1);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, n, n, 0,
+       gl.RGBA, gl.FLOAT, new Float32Array(pixels));
+      animation = "animate";
+     case "animate":
+       if (delay == 0) requestAnimFrame(anim);
+       else setTimeout("requestAnimFrame(anim)", delay);
+       break;
+     case "stop":
+       break;
+   }
+}
+function run(v) {
+  if( animation == "animate" ){
+    animation = "stop";
+    document.getElementById('runBtn').value = "Run ";}
+  else{
+    animation = "animate";
+    document.getElementById('runBtn').value = "Stop";
+    anim();
+  }
+}
+function reset() {
+  if( animation == "stop" ){
+    animation = "reset";
+    document.getElementById('runBtn').value = "Stop";
+    anim();}
+  else animation = "reset";
+}
+function fr(){
+  var ti = new Date().getTime();
+  var fps = Math.round(1000*frames/(ti - time));
+  document.getElementById("framerate").value = fps;
+  frames = 0;  time = ti;
+}
+function setDelay(val) {
+  delay = parseInt(val);
+}
+function setIt(val) {
+  it = parseInt(val);
+}
+function setBu(v) {
+  var bu = v.valueOf();
+  gl.useProgram(prog_force);                //    c = dt*b/2
+  gl.uniform1f(gl.getUniformLocation(prog_force, "c"), .001*.5*bu );
+}
+
+</script>
+
+<style type="text/css">
+  H1{ font-size: 120%; color: green}
+  H2{ font-size: 100%; color: green}
+  pre{ color: darkblue}
+</style>
+</head>
+<body onload="main()">
+
+<canvas id="c" width="512" height="512" styl="border:1px solid black;"></canvas>
+<br><button onclick="reset()">Reset</button>
+<input type="button" onclick="run()" value="Stop" size="1" id="runBtn">
+&beta;<input size="2" value="10" onchange="setBu( this.value )">
+It<input size="1" value="10" onchange="setIt( this.value )">
+delay<input size="1" value="0" onchange="setDelay( this.value )">
+fps<input size="1" id="framerate">
+
+<br>2d ink droplet in water dynamics. Set a new buoyancy value <i>&beta;</i>.
+This script makes <i>2 It</i> iterations every time step to calculate pressure.
+Boundaries are periodic.
+
+<p>See <a href="fluid.htm">2D fluid dynamics</a> for explanations.
+
+
+
+<hr><a href="contents.htm">Simulations on GPU</a>
+<br><i>updated</i> 20 Aug 2011
+</body>
+</html>

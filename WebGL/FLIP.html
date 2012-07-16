@@ -1,0 +1,766 @@
+<head>
+	<title>FFT FLUID DEMO</title>
+
+	<style type="text/css">
+		canvas{
+			border:1px solid black;
+		}
+		button{
+			width:80;
+		}
+	</style>
+
+	<script id="vs-default" type="x-shader/x-vertex"> 
+		attribute vec2 aPos;
+		varying   vec2 tc;
+		void main(void) {
+			gl_Position = vec4(aPos, 0., 1.);
+			tc = (aPos+vec2(1.,1.))/2.;
+		}
+	</script> 
+
+	<script id="fs-default" type="x-shader/x-fragment"> 
+		#ifdef GL_ES
+			precision highp float;
+		#endif
+		uniform sampler2D samp;
+		varying vec2 tc;
+		void main(void) {
+			gl_FragColor = texture2D(samp, tc);
+		}
+	</script>
+
+	<script id="fs-show" type="x-shader/x-fragment"> 
+		#ifdef GL_ES
+			precision highp float;
+		#endif
+		uniform sampler2D samp;
+		varying vec2 tc;
+		void main(void) {
+			gl_FragColor = abs(texture2D(samp, tc));
+			gl_FragColor.a = 1.;
+		}
+	</script>
+
+	<script id="fs-average" type="x-shader/x-fragment"> 
+		#ifdef GL_ES
+			precision highp float;
+		#endif
+		uniform sampler2D samp;
+		varying vec2 tc;
+		void main(void) {
+			vec4 t = texture2D(samp, tc);
+			gl_FragColor.rg = t.b>0. ? t.rg/t.b : vec2(0.);
+			gl_FragColor.ba = t.ba;
+		}
+	</script>
+
+	<script id="fs-gravity" type="x-shader/x-fragment"> 
+		#ifdef GL_ES
+			precision highp float;
+		#endif
+		uniform sampler2D samp;
+		uniform float gdt;
+		varying vec2 tc;
+		void main(void) {
+			vec4 t = texture2D(samp, tc);
+			gl_FragColor.g = t.g+gdt;
+			gl_FragColor.rba = t.rba;
+		}
+	</script>
+
+	<script id="fs-update-particles" type="x-shader/x-fragment"> 
+		#ifdef GL_ES
+			precision highp float;
+		#endif
+		uniform sampler2D psamp,samp,saved;
+		uniform float dt,a;
+		varying vec2 tc;
+		void main(void) {
+			vec2 pos = texture2D(psamp, tc).rg;
+			vec2 vel = texture2D(psamp, tc).ba;
+			vec2 ptc = (pos+vec2(1.,1.))/2.;
+			vec2 gvel = texture2D(samp, ptc).rg;
+			vec2 sgvel = texture2D(saved, ptc).rg;
+			vel = a*gvel+(1.-a)*(vel+gvel-sgvel);
+
+			// vec2 newpos = pos + vel*dt;
+			// if(newpos.r < -1.){
+			// 	newpos.r = -2.-newpos.r;
+			// 	vel.r = -vel.r;
+			// }
+			// if(newpos.r > 1.){
+			// 	newpos.r = 2.-newpos.r;
+			// 	vel.r = -vel.r;
+			// }
+			// if(newpos.g < -1.){
+			// 	newpos.g = -2.-newpos.g;
+			// 	vel.g = -vel.g;
+			// }
+			// if(newpos.g > 1.){
+			// 	newpos.g = 2.-newpos.g;
+			// 	vel.g = -vel.g;
+			// }
+			vec2 newpos = clamp(pos + vel*dt,-1.,1.);
+			gl_FragColor.rg= newpos;
+			gl_FragColor.ba = vel;
+		}
+	</script>
+
+	<script id="fs-div" type="x-shader/x-fragment"> 
+		#ifdef GL_ES
+			precision highp float;
+		#endif
+		uniform sampler2D samp;
+		uniform float h;
+		varying vec2 tc;
+		void main(void) {
+			float u = texture2D(samp, tc).r;
+			float v = texture2D(samp, tc).g;
+			float ul = tc.r>h ? texture2D(samp, vec2(tc.r-h,tc.g)).r : -u;
+			float ur = tc.r<1.-h ? texture2D(samp, vec2(tc.r+h,tc.g)).r : -u;
+			float vd = tc.g>h ? texture2D(samp, vec2(tc.r,tc.g-h)).g : -v;
+			float vu = tc.g<1.-h ? texture2D(samp, vec2(tc.r,tc.g+h)).g : -v;
+
+			//extrapolate the velocity
+			ul = texture2D(samp,vec2(tc.r-h,tc.g)).b>0. ? ul : u;
+			ur = texture2D(samp,vec2(tc.r+h,tc.g)).b>0. ? ur : u;
+			vd = texture2D(samp,vec2(tc.r,tc.g-h)).b>0. ? vd : v;
+			vu = texture2D(samp,vec2(tc.r,tc.g+h)).b>0. ? vu : v;
+
+			gl_FragColor.b = texture2D(samp,tc).b>0. ? 1. : 0.;
+			gl_FragColor.r = 0.5*(ur-ul+vu-vd);
+		}
+	</script>
+
+	<script id="fs-pressure" type="x-shader/x-fragment">
+		#ifdef GL_ES
+			precision highp float;
+		#endif
+		uniform sampler2D samp;
+		uniform float h;
+		varying vec2 tc;
+		void main(void) {
+			gl_FragColor = texture2D(samp,tc);
+			if(gl_FragColor.b == 0.){
+				gl_FragColor.g = 0.;
+				return;
+			}
+
+			float pc = gl_FragColor.g;
+			float pl = tc.r>h ? texture2D(samp, vec2(tc.r-h,tc.g)).g : pc;
+			float pr = tc.r<1.-h ? texture2D(samp, vec2(tc.r+h,tc.g)).g : pc;
+			float pd = tc.g>h ? texture2D(samp, vec2(tc.r,tc.g-h)).g : pc;
+			float pu = tc.g<1.-h ? texture2D(samp, vec2(tc.r,tc.g+h)).g : pc;
+
+			// gl_FragColor.g = (pl+pr+pd+pu-gl_FragColor.r)/4.;
+			gl_FragColor.g = max(0.,(pl+pr+pd+pu-gl_FragColor.r)/4.);
+		}
+	</script>
+
+	<script id="fs-proj" type="x-shader/x-fragment">
+		#ifdef GL_ES
+			precision highp float;
+		#endif
+		uniform sampler2D psamp,samp;
+		uniform float h;
+		varying vec2 tc;
+		void main(void) {
+			float pc = texture2D(psamp,tc).g;
+			float pl = texture2D(psamp, vec2(tc.r-h,tc.g)).g;
+			float pr = texture2D(psamp, vec2(tc.r+h,tc.g)).g;
+			float pd = texture2D(psamp, vec2(tc.r,tc.g-h)).g;
+			float pu = texture2D(psamp, vec2(tc.r,tc.g+h)).g;
+
+			//extrapolate the pressure
+			pl = tc.r>h ? pl : 2.*pc-pr;
+			pr = tc.r<1.-h ? pr : 2.*pc-pl;
+			pd = tc.g>h ? pd : 2.*pc-pu;
+			pu = tc.g<1.-h ? pu : 2.*pc-pd;
+
+			gl_FragColor.r = texture2D(samp,tc).r-0.5*(pr-pl);
+			gl_FragColor.g = texture2D(samp,tc).g-0.5*(pu-pd);
+			gl_FragColor.ba = texture2D(samp,tc).ba;
+		}
+	</script>
+
+	<script id="fs-res" type="x-shader/x-fragment">
+		#ifdef GL_ES
+			precision highp float;
+		#endif
+		uniform sampler2D samp;
+		uniform float h;
+		varying vec2 tc;
+		void main(void) {
+			gl_FragColor = texture2D(samp,tc);
+
+			if(gl_FragColor.b == 0.){
+				gl_FragColor.r = 0.;
+				return;
+			}
+
+			float pc = gl_FragColor.g;
+			float pl = tc.r>h ? texture2D(samp, vec2(tc.r-h,tc.g)).g : pc;
+			float pr = tc.r<1.-h ? texture2D(samp, vec2(tc.r+h,tc.g)).g : pc;
+			float pd = tc.g>h ? texture2D(samp, vec2(tc.r,tc.g-h)).g : pc;
+			float pu = tc.g<1.-h ? texture2D(samp, vec2(tc.r,tc.g+h)).g : pc;
+
+			gl_FragColor.r = 4.*gl_FragColor.g-(pl+pr+pd+pu-gl_FragColor.r);
+			gl_FragColor.g = 0.;
+		}
+	</script>
+
+	<script id="fs-smooth" type="x-shader/x-fragment">
+		#ifdef GL_ES
+			precision highp float;
+		#endif
+		uniform sampler2D samp;
+		uniform float h;
+		varying vec2 tc;
+
+		const float alpha = 0.8;
+
+		void main(void) {
+			gl_FragColor = texture2D(samp,tc);
+			if(gl_FragColor.b == 0.){
+				gl_FragColor.g = 0.;
+				return;
+			}
+
+			float pc = gl_FragColor.g;
+			float pl = tc.r>h ? texture2D(samp, vec2(tc.r-h,tc.g)).g : pc;
+			float pr = tc.r<1.-h ? texture2D(samp, vec2(tc.r+h,tc.g)).g : pc;
+			float pd = tc.g>h ? texture2D(samp, vec2(tc.r,tc.g-h)).g : pc;
+			float pu = tc.g<1.-h ? texture2D(samp, vec2(tc.r,tc.g+h)).g : pc;
+
+			gl_FragColor.g += alpha*((pl+pr+pd+pu-gl_FragColor.r)/4.-gl_FragColor.g);
+			gl_FragColor.g = gl_FragColor.g>0. ? gl_FragColor.g : 0.;
+		}
+	</script>
+
+	<script id="fs-prolong" type="x-shader/x-fragment">
+		#ifdef GL_ES
+			precision highp float;
+		#endif
+		uniform sampler2D samp,csamp;
+		uniform float h;
+		varying vec2 tc;
+
+		void main(void) {
+			gl_FragColor = texture2D(samp,tc);
+			gl_FragColor.g += texture2D(csamp,tc);
+		}
+	</script>
+
+	<script id="vs-particles" type="x-shader/x-vertex"> 
+		attribute vec2 aId;
+			uniform sampler2D samp;
+		varying vec2 vel;
+
+		void main(void) {
+			vec4 t = texture2D(samp,aId);
+			gl_Position = vec4(t.rg, 0., 1.);
+			gl_PointSize = 2.;
+			vel = t.ba;
+		}
+	</script> 
+
+	<script id="fs-particles" type="x-shader/x-fragment"> 
+		#ifdef GL_ES
+			precision highp float;
+		#endif
+		varying vec2 vel;
+
+		void main(void) {
+			vec2 d = 2.*(vec2(0.5)-abs(gl_PointCoord-vec2(0.5)));
+			float w = d.r*d.g;
+			gl_FragColor = vec4(w*vel.r,w*vel.g,w,1.);
+		}
+	</script>
+
+	<script type="text/javascript">
+	function getShader ( gl, id ){
+		var shaderScript = document.getElementById ( id );
+		var str = "";
+		var k = shaderScript.firstChild;
+		while ( k ){
+			if ( k.nodeType == 3 ) str += k.textContent;
+			k = k.nextSibling;
+		}
+		var shader;
+		if ( shaderScript.type == "x-shader/x-fragment" )
+			shader = gl.createShader ( gl.FRAGMENT_SHADER );
+		else if ( shaderScript.type == "x-shader/x-vertex" )
+			shader = gl.createShader(gl.VERTEX_SHADER);
+		else return null;
+		gl.shaderSource(shader, str);
+		gl.compileShader(shader);
+		if (gl.getShaderParameter(shader, gl.COMPILE_STATUS) == 0)
+			alert(id + "\n" + gl.getShaderInfoLog(shader));
+		return shader;
+	}
+
+	function getProgram ( gl, vs_id,fs_id ){
+		var program  = gl.createProgram();
+		gl.attachShader(program, getShader( gl, vs_id ));
+		if(arguments.length == 3){
+			gl.attachShader(program, getShader( gl, fs_id ));
+		}
+		else{
+			gl.attachShader(program, getShader( gl, "vs-default" ));
+		}
+		gl.linkProgram(program);
+
+		return program;
+	}
+
+	function createTexture(gl,width,height,pixels){
+		if(!gl.ntextures){
+			gl.ntextures = 1;
+		}
+		else{
+			gl.ntextures++;
+		}
+		var id = gl.ntextures-1;
+
+		var texture = gl.createTexture();
+		gl.activeTexture(gl.TEXTURE0+id);
+		gl.bindTexture(gl.TEXTURE_2D, texture);
+		// gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+		if(!pixels){
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0,
+				gl.RGBA, gl.FLOAT, null);
+		}
+		else{
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0,
+				gl.RGBA, gl.FLOAT, pixels);
+		}
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+		texture.id = id;
+		texture.width = width;
+		texture.height = height;
+
+		return texture;
+	}
+
+	function textureFramebuffer(gl, texture){
+		var fb = gl.createFramebuffer();
+		gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
+			gl.TEXTURE_2D, texture, 0);
+		if( gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE)
+			alert(err + "FLOAT as the color attachment to an FBO");
+
+		gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+		return fb;
+	}
+
+	function bindFramebuffer(gl,texture){
+		texture.fb = textureFramebuffer(gl,texture);
+	}
+
+	function setSampler(gl,prog,samp,texture){
+		gl.useProgram(prog);
+		var sampLoc  = gl.getUniformLocation(prog, samp);
+		gl.uniform1i(sampLoc, texture.id);
+	}
+
+	function Grid(gl,size){
+		this.gl = gl;
+		this.size = size;
+
+		this._init = function(){
+			var gl = this.gl;
+			this.loadPrograms();
+
+			var buf_quad = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, buf_quad);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1])
+				, gl.STATIC_DRAW);
+			gl.useProgram(this.programs["default"]);
+			var aPosLoc = gl.getAttribLocation(this.programs["default"], "aPos");
+			gl.enableVertexAttribArray(aPosLoc);
+			gl.vertexAttribPointer(aPosLoc, 2, gl.FLOAT, gl.FALSE, 0, 0);
+
+			this.textures = new Array();
+			for(var i = 0 ; i < 3 ; i++){
+				this.textures[i] = createTexture(gl,this.size,this.size);
+				bindFramebuffer(gl,this.textures[i]);
+			}
+			this.current = 0;
+			this.other = 1;
+			this.saved = 2;
+
+			this.levels = 1;
+			this.pressuretexures = new Array();
+			this.pressuretexures[0] = new Array();
+			this.pressuretexures[1] = new Array();
+			this.pressuretexures[0][0] = createTexture(gl,this.size,this.size);
+			this.pressuretexures[1][0] = createTexture(gl,this.size,this.size);
+			bindFramebuffer(gl,this.pressuretexures[0][0]);
+			bindFramebuffer(gl,this.pressuretexures[1][0]);
+			setSampler(gl,this.programs["proj"],"psamp",this.pressuretexures[0][0]);
+
+			this.setSpacing();
+			setSampler(gl,this.programs["update-particles"],"saved",this.textures[this.saved]);
+		}
+
+		this.findDivergence = function(){
+			this.render("div",this.textures[this.current],this.pressuretexures[0][0]);
+		}
+
+		this.solvePressure = function(){
+			this.setUniform1f("smooth","h",1/this.size);
+			if(this.levels<2){
+				for (var i = 0; i < this.maxiter; i++) {
+					this.render("pressure",this.pressuretexures[0][0],this.pressuretexures[1][0]);
+					this.render("pressure",this.pressuretexures[1][0],this.pressuretexures[0][0]);
+				}
+			}
+			else{
+				
+			}
+		}
+
+		this.makeIncompressible = function(){
+			this.findDivergence();
+			this.solvePressure();
+			this.runProgram("proj");
+		}
+
+		this.loadPrograms = function(){
+			this.programs = [];
+			var shaderscripts = document.querySelectorAll("script[type='x-shader/x-fragment']");
+			for(var i = 0 ; i < shaderscripts.length ; i++){
+				var id = shaderscripts[i].id.slice(3);
+				if(id != "particles"){
+					this.programs[id] = getProgram(this.gl,shaderscripts[i].id);
+				}
+			}
+		}
+
+		this.render = function(prog,src,tgt,uniforms){
+			var gl = this.gl;
+
+			gl.useProgram(this.programs[prog]);
+			var sampLoc  = gl.getUniformLocation(this.programs[prog], "samp");
+			gl.uniform1i(sampLoc, src.id);
+
+			if(uniforms){
+				for(var u in uniforms){
+					gl.uniform1f(gl.getUniformLocation(this.programs[prog], u), uniforms[u]);
+				}
+			}
+			if(!tgt){
+				gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+			}
+			else{
+				gl.bindFramebuffer(gl.FRAMEBUFFER, tgt.fb);
+			}
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+			gl.flush();
+		}
+
+		this.runProgram = function(prog){
+			this.render(prog,this.textures[this.current],this.textures[this.other]);
+
+			this.current = this.other;
+			this.other = (this.other+1)%2;
+		}
+
+		this.saveVelocities = function(){
+			this.render("default",this.textures[this.current],this.textures[this.saved]);
+		}
+
+		this.setViscosity = function(a){
+			this.setUniform1f("update-particles","a",a);
+		}
+
+		this.setGravity = function(g){
+			this.g = g;
+			this.setUniform1f("gravity","gdt",this.g*this.dt);
+		}
+
+		this.setLevels = function(n){
+			this.levels = n;
+			for (var i = 1; i < n; i++) {
+				this.pressuretexures[0][i] = createTexture(gl,this.size>>i,this.size>>i);
+				this.pressuretexures[1][i] = createTexture(gl,this.size>>i,this.size>>i);
+				bindFramebuffer(gl,this.pressuretexures[0][i]);
+				bindFramebuffer(gl,this.pressuretexures[1][i]);
+			}
+		}
+
+		this.setSpacing = function(){
+			this.setUniform1f("div","h",1/this.size);
+			this.setUniform1f("pressure","h",1/this.size);
+			this.setUniform1f("proj","h",1/this.size);
+		}
+
+		this.setTimeStep = function(dt){
+			this.dt = dt;
+			this.setUniform1f("gravity","gdt",this.g*this.dt);
+			this.setUniform1f("update-particles","dt",this.dt);
+		}
+
+		this.setUniform1f = function(p,uniform,value){
+			var gl = this.gl;
+			var prog = this.programs[p];
+
+			gl.useProgram(prog);
+			gl.uniform1f(gl.getUniformLocation(prog, uniform),value);
+		}
+
+		this.show = function(fs){
+			if(fs){
+				this.render(fs,this.textures[this.current],null);
+			}
+			else{
+				this.render("show",this.textures[this.current],null);
+			}
+		}
+
+		this._init();
+	}
+
+	function Particles(gl,size){
+		this.gl = gl;
+		this.size = size;
+
+		this._init = function(){
+			var gl = this.gl;
+
+			var buf_particle = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, buf_particle);
+			var n = this.size;
+			var data = new Float32Array(2*n*n);
+			for (var i = 0; i < n; i++) {
+				for(var j = 0; j < n; j++){
+					data.set([i/n+1/2/n, j/n+1/2/n], 2*(n*i+j));
+				}
+			}
+			gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+			var prog_particle = getProgram(gl,"vs-particles","fs-particles");
+			gl.useProgram(prog_particle);
+			var aIdLoc = 1;
+			gl.bindAttribLocation(prog_particle,aIdLoc,"aId");
+			gl.linkProgram(prog_particle);
+			gl.enableVertexAttribArray(aIdLoc);
+			gl.vertexAttribPointer(aIdLoc, 2, gl.FLOAT, gl.FALSE, 0, 0);
+			this.program = prog_particle;
+
+			this.textures = new Array();
+			this.textures[0] = createTexture(gl,this.size,this.size);
+			this.textures[1] = createTexture(gl,this.size,this.size);
+			bindFramebuffer(gl,this.textures[0]);
+			bindFramebuffer(gl,this.textures[1]);
+			this.current = 0;
+			this.other = 1;
+
+			gl.blendFunc(gl.ONE,gl.ONE);
+		}
+
+		this.initSquare = function(centerx,centery,width,vx,vy){
+			var gl = this.gl;
+
+			var n = this.size;
+			var ox = centerx-width/2;
+			var oy = centery-width/2;
+
+			var pv = new Float32Array(4*n*n);
+			for (var i = 0; i < n; i++) {
+				for(var j = 0; j < n; j++){
+					pv.set([i/(n-1)*width+ox, j/(n-1)*width+oy, vx, vy], 4*(n*i+j));
+				}
+			}
+
+			this.setData(pv);
+		}
+
+		this.setData = function(data){
+			var gl = this.gl;
+
+			gl.activeTexture(gl.TEXTURE0+this.textures[this.current].id);
+			gl.bindTexture(gl.TEXTURE_2D, this.textures[this.current]);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.size, this.size, 0,
+				gl.RGBA, gl.FLOAT, data);
+		}
+
+		this.show = function(){
+			var gl = this.gl;
+
+			gl.enable(gl.BLEND);
+
+			gl.useProgram(this.program);
+			setSampler(gl,this.program,"samp",this.textures[this.current]);
+			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+			gl.clear(gl.COLOR_BUFFER_BIT);
+			gl.drawArrays(gl.POINTS, 0, this.size*this.size);
+			gl.flush();
+
+			gl.disable(gl.BLEND);
+		}
+
+		this.transferToGrid = function(grid){
+			var gl = this.gl;
+
+			gl.enable(gl.BLEND);
+
+			gl.useProgram(this.program);
+			setSampler(gl,this.program,"samp",this.textures[this.current]);
+			gl.bindFramebuffer(gl.FRAMEBUFFER, grid.textures[grid.current].fb);
+			gl.clear(gl.COLOR_BUFFER_BIT);
+			gl.drawArrays(gl.POINTS, 0, this.size*this.size);
+			gl.flush();
+
+			gl.disable(gl.BLEND);
+
+			grid.runProgram("average");
+		}
+
+		this.updateFromGrid = function(grid){
+			var gl = this.gl;
+
+			gl.useProgram(grid.programs["update-particles"]);
+			setSampler(gl,grid.programs["update-particles"],"psamp",this.textures[this.current]);
+			setSampler(gl,grid.programs["update-particles"],"samp",grid.textures[grid.current]);
+			gl.bindFramebuffer(gl.FRAMEBUFFER, this.textures[this.other].fb);
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+			gl.flush();
+
+			this.current = this.other;
+			this.other = (this.other+1)%2;
+		}
+
+		this._init();
+	}
+
+	function FLIPSimulation(gl,gsize,psize,material,parameters){
+		this.grid = new Grid(gl,gsize);
+		this.particles = new Particles(gl,psize);
+
+		this.grid.setGravity(material.gravity);
+		this.grid.setViscosity(material.viscosity);
+
+		this.grid.setTimeStep(parameters.timestep);
+		this.grid.maxiter = parameters.maxiter;
+		this.grid.setLevels(parameters.levels);
+
+		this.init = function(centerx,centery,width,vx,vy){
+			this.particles.initSquare(centerx,centery,width,vx,vy);
+		}
+
+		this.show = function(){
+			// this.particles.show();
+			this.grid.show();
+		}
+
+		this.step = function(){
+			this.particles.transferToGrid(this.grid);
+			this.grid.saveVelocities();
+			this.grid.runProgram("gravity");
+			this.grid.makeIncompressible();
+			this.particles.updateFromGrid(this.grid);
+
+			this.grid.render("res",this.grid.pressuretexures[0][0],this.grid.textures[this.grid.current]);
+
+			this.show();
+		}
+
+		this.startAnimation = function(){
+			if(this.running){
+				return;
+			}
+			var self = this;
+			var frames = 0;
+			var t0 = Date.now();
+			this.running = setInterval(
+				function(){
+					self.step();
+					frames++;
+					var t1 = Date.now();
+					if(t1-t0>=1000){
+						document.getElementById("fps").innerHTML = "FPS:"+Math.round(frames*1000/(t1-t0));
+						t0 = t1;
+						frames = 0;
+					}
+				}
+				,1000/60);
+		}
+
+		this.stopAnimation = function(){
+			if(this.running){
+				clearInterval(this.running);
+				this.running = null;
+			}
+		}
+	}
+
+	function showTexture(gl,prog,texture){
+		gl.useProgram(prog);
+		setSampler(gl,prog,"samp",texture);
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+		gl.flush();
+	}
+
+	function toggleAnimation(){
+		if(!sim.running){
+			sim.startAnimation();
+			document.getElementById("toggle").innerHTML = "Pause";
+		}
+		else{
+			sim.stopAnimation();
+			document.getElementById("toggle").innerHTML = "Continue";
+		}
+	}
+
+	function reset(){
+		var running = sim.running;
+		sim.stopAnimation();
+		sim.init(init[0],init[1],init[2],init[3],init[4]);
+		sim.particles.transferToGrid(sim.grid);
+		sim.show();
+
+		if(running){
+			sim.startAnimation();
+		}
+	}
+
+	var sim;
+	var init = [0,-0.45,1,0,0];
+	function main() {
+		var c = document.getElementById("c");
+		var gl = c.getContext("experimental-webgl");
+		if ( !gl ) alert("Can't get WebGL"); 
+		gl.getExtension("OES_texture_float");
+
+		var mat = new Object();
+		mat.gravity = -0.5;
+		mat.viscosity = 0.1;
+		var para = new Object();
+		para.timestep = 1/60;
+		para.maxiter = 100;
+		para.levels = 1;
+
+		sim = new FLIPSimulation(gl,128,128,mat,para);
+		sim.init(init[0],init[1],init[2],init[3],init[4]);
+		sim.particles.transferToGrid(sim.grid);
+		sim.show();
+		// sim.startAnimation();
+	}
+
+</script> 
+</head>
+
+<body onload="main();">
+	<canvas id="c" width="512" height="512"></canvas>
+	<br/>
+	<button id ="toggle" onclick="toggleAnimation()">Start</button>
+	<button id ="reset" onclick="reset()">Reset</button>
+	<p id="fps">FPS:NA</p>
+</body>
