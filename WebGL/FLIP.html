@@ -1,5 +1,5 @@
 <head>
-	<title>FFT FLUID DEMO</title>
+	<title>FLIP Droplet</title>
 
 	<style type="text/css">
 		canvas{
@@ -206,6 +206,35 @@
 			float pu = tc.g<1.-h ? texture2D(samp, vec2(tc.r,tc.g+h)).g : pc;
 
 			gl_FragColor.r = 4.*gl_FragColor.g-(pl+pr+pd+pu-gl_FragColor.r);
+			// gl_FragColor.g = 0.;
+		}
+	</script>
+
+	<script id="fs-restrict" type="x-shader/x-fragment">
+		#ifdef GL_ES
+			precision highp float;
+		#endif
+		uniform sampler2D samp;
+		uniform float h;
+		varying vec2 tc;
+		void main(void) {
+			gl_FragColor = texture2D(samp,tc);
+
+			if(gl_FragColor.b == 0.){
+				gl_FragColor.r = 0.;
+				return;
+			}
+			else{
+				gl_FragColor.b = 1.;
+			}
+
+			float pc = gl_FragColor.g;
+			float pl = tc.r>h ? texture2D(samp, vec2(tc.r-h,tc.g)).g : pc;
+			float pr = tc.r<1.-h ? texture2D(samp, vec2(tc.r+h,tc.g)).g : pc;
+			float pd = tc.g>h ? texture2D(samp, vec2(tc.r,tc.g-h)).g : pc;
+			float pu = tc.g<1.-h ? texture2D(samp, vec2(tc.r,tc.g+h)).g : pc;
+
+			gl_FragColor.r = gl_FragColor.r-(pl+pr+pd+pu-4.*gl_FragColor.g);
 			gl_FragColor.g = 0.;
 		}
 	</script>
@@ -243,12 +272,11 @@
 			precision highp float;
 		#endif
 		uniform sampler2D samp,csamp;
-		uniform float h;
 		varying vec2 tc;
 
 		void main(void) {
 			gl_FragColor = texture2D(samp,tc);
-			gl_FragColor.g += texture2D(csamp,tc);
+			gl_FragColor.g += texture2D(csamp,tc).g*2.;
 		}
 	</script>
 
@@ -335,7 +363,7 @@
 			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0,
 				gl.RGBA, gl.FLOAT, pixels);
 		}
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -414,15 +442,44 @@
 		}
 
 		this.solvePressure = function(){
-			this.setUniform1f("smooth","h",1/this.size);
-			if(this.levels<2){
-				for (var i = 0; i < this.maxiter; i++) {
-					this.render("pressure",this.pressuretexures[0][0],this.pressuretexures[1][0]);
-					this.render("pressure",this.pressuretexures[1][0],this.pressuretexures[0][0]);
+			var pre = 0;
+			var post = 20;
+			var top = 200;
+			if(this.levels>1) {
+				for (var k = 0; k < this.iterations; k++) {
+					for (var i = 0; i < this.levels-1; i++) {
+						this.setUniform1f("smooth","h",1/(this.size>>i));
+						this.setUniform1f("restrict","h",1/(this.size>>i));
+						for (var j = 0; j < pre/2; j++) {
+							this.render("smooth",this.pressuretexures[0][i],this.pressuretexures[1][i]);
+							this.render("smooth",this.pressuretexures[1][i],this.pressuretexures[0][i]);
+						}
+						this.render("restrict",this.pressuretexures[0][i],this.pressuretexures[0][i+1]);
+					}
+
+					this.setUniform1f("pressure","h",1/(this.size>>(this.levels-1)));
+					for (var i = 0; i < top/2; i++) {
+						this.render("pressure",this.pressuretexures[0][this.levels-1],this.pressuretexures[1][this.levels-1]);
+						this.render("pressure",this.pressuretexures[1][this.levels-1],this.pressuretexures[0][this.levels-1]);
+					}
+
+					for (var i = this.levels-2 ; i >= 0 ; i--) {
+						this.setUniform1f("smooth","h",1/(this.size>>i));
+						setSampler(this.gl,this.programs["prolong"],"csamp",this.pressuretexures[0][i+1]);
+						this.render("prolong",this.pressuretexures[0][i],this.pressuretexures[1][i]);
+						this.render("smooth",this.pressuretexures[1][i],this.pressuretexures[0][i]);
+						for (var j = 0; j < (post-1)/2; j++) {
+							this.render("smooth",this.pressuretexures[0][i],this.pressuretexures[1][i]);
+							this.render("smooth",this.pressuretexures[1][i],this.pressuretexures[0][i]);
+						}
+					}
 				}
 			}
 			else{
-				
+				for (var i = 0; i < this.iterations/2; i++) {
+					this.render("pressure",this.pressuretexures[0][0],this.pressuretexures[1][0]);
+					this.render("pressure",this.pressuretexures[1][0],this.pressuretexures[0][0]);
+				}
 			}
 		}
 
@@ -647,7 +704,7 @@
 		this.grid.setViscosity(material.viscosity);
 
 		this.grid.setTimeStep(parameters.timestep);
-		this.grid.maxiter = parameters.maxiter;
+		this.grid.iterations = parameters.iterations;
 		this.grid.setLevels(parameters.levels);
 
 		this.init = function(centerx,centery,width,vx,vy){
@@ -655,8 +712,8 @@
 		}
 
 		this.show = function(){
-			// this.particles.show();
-			this.grid.show();
+			this.particles.show();
+			// this.grid.show();
 		}
 
 		this.step = function(){
@@ -732,7 +789,7 @@
 	}
 
 	var sim;
-	var init = [0,-0.45,1,0,0];
+	var init = [-0.5,-0.5,1,0,0];
 	function main() {
 		var c = document.getElementById("c");
 		var gl = c.getContext("experimental-webgl");
@@ -744,14 +801,21 @@
 		mat.viscosity = 0.1;
 		var para = new Object();
 		para.timestep = 1/60;
-		para.maxiter = 100;
-		para.levels = 1;
+		para.iterations = 5;
+		para.levels = 8;
 
-		sim = new FLIPSimulation(gl,128,128,mat,para);
+		sim = new FLIPSimulation(gl,512,512,mat,para);
 		sim.init(init[0],init[1],init[2],init[3],init[4]);
 		sim.particles.transferToGrid(sim.grid);
 		sim.show();
+
 		// sim.startAnimation();
+
+		// var t0 = Date.now();
+		// for (var i = 0; i < 80; i++) {
+		// 	sim.step();
+		// }
+		// alert(Date.now()-t0);
 	}
 
 </script> 
