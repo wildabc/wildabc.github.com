@@ -42,7 +42,7 @@
 		}
 	</script>
 
-	<script id="fs-average" type="x-shader/x-fragment"> 
+	<script id="fs-normalize" type="x-shader/x-fragment"> 
 		#ifdef GL_ES
 			precision highp float;
 		#endif
@@ -50,8 +50,8 @@
 		varying vec2 tc;
 		void main(void) {
 			vec4 t = texture2D(samp, tc);
-			gl_FragColor.rg = t.b>0. ? t.rg/t.b : vec2(0.);
-			gl_FragColor.ba = t.ba;
+			gl_FragColor.rgb = t.b>0. ? t.rgb/t.b : vec3(0.);
+			gl_FragColor.a = t.a;
 		}
 	</script>
 
@@ -73,14 +73,14 @@
 		#ifdef GL_ES
 			precision highp float;
 		#endif
-		uniform sampler2D psamp,samp,saved;
+		uniform sampler2D samp,grid,saved;
 		uniform float dt,a;
 		varying vec2 tc;
 		void main(void) {
-			vec2 pos = texture2D(psamp, tc).rg;
-			vec2 vel = texture2D(psamp, tc).ba;
-			vec2 ptc = (pos+vec2(1.,1.))/2.;
-			vec2 gvel = texture2D(samp, ptc).rg;
+			vec2 pos = texture2D(samp, tc).rg;
+			vec2 vel = texture2D(samp, tc).ba;
+			vec2 ptc = (pos+vec2(1.))/2.;
+			vec2 gvel = texture2D(grid, ptc).rg;
 			vec2 sgvel = texture2D(saved, ptc).rg;
 			vel = a*gvel+(1.-a)*(vel+gvel-sgvel);
 
@@ -117,19 +117,22 @@
 		void main(void) {
 			float u = texture2D(samp, tc).r;
 			float v = texture2D(samp, tc).g;
+
+			//extrapolate the velocity
 			float ul = tc.r>h ? texture2D(samp, vec2(tc.r-h,tc.g)).r : -u;
 			float ur = tc.r<1.-h ? texture2D(samp, vec2(tc.r+h,tc.g)).r : -u;
 			float vd = tc.g>h ? texture2D(samp, vec2(tc.r,tc.g-h)).g : -v;
 			float vu = tc.g<1.-h ? texture2D(samp, vec2(tc.r,tc.g+h)).g : -v;
 
-			//extrapolate the velocity
 			ul = texture2D(samp,vec2(tc.r-h,tc.g)).b>0. ? ul : u;
 			ur = texture2D(samp,vec2(tc.r+h,tc.g)).b>0. ? ur : u;
 			vd = texture2D(samp,vec2(tc.r,tc.g-h)).b>0. ? vd : v;
 			vu = texture2D(samp,vec2(tc.r,tc.g+h)).b>0. ? vu : v;
 
-			gl_FragColor.b = texture2D(samp,tc).b>0. ? 1. : 0.;
-			gl_FragColor.r = 0.5*(ur-ul+vu-vd);
+			if(texture2D(samp,tc).b>0.){
+				gl_FragColor.b = 1.;
+				gl_FragColor.r = 0.5*(ur-ul+vu-vd);
+			}
 		}
 	</script>
 
@@ -148,10 +151,10 @@
 			}
 
 			float pc = gl_FragColor.g;
-			float pl = tc.r>h ? texture2D(samp, vec2(tc.r-h,tc.g)).g : pc;
-			float pr = tc.r<1.-h ? texture2D(samp, vec2(tc.r+h,tc.g)).g : pc;
-			float pd = tc.g>h ? texture2D(samp, vec2(tc.r,tc.g-h)).g : pc;
-			float pu = tc.g<1.-h ? texture2D(samp, vec2(tc.r,tc.g+h)).g : pc;
+			float pl = texture2D(samp, vec2(tc.r-h,tc.g)).b>0. ? texture2D(samp, vec2(tc.r-h,tc.g)).g : -pc;
+			float pr = texture2D(samp, vec2(tc.r+h,tc.g)).b>0. ? texture2D(samp, vec2(tc.r+h,tc.g)).g : -pc;
+			float pd = texture2D(samp, vec2(tc.r,tc.g-h)).b>0. ? texture2D(samp, vec2(tc.r,tc.g-h)).g : -pc;
+			float pu = texture2D(samp, vec2(tc.r,tc.g+h)).b>0. ? texture2D(samp, vec2(tc.r,tc.g+h)).g : -pc;
 
 			// gl_FragColor.g = (pl+pr+pd+pu-gl_FragColor.r)/4.;
 			gl_FragColor.g = max(0.,(pl+pr+pd+pu-gl_FragColor.r)/4.);
@@ -167,10 +170,14 @@
 		varying vec2 tc;
 		void main(void) {
 			float pc = texture2D(psamp,tc).g;
-			float pl = texture2D(psamp, vec2(tc.r-h,tc.g)).g;
-			float pr = texture2D(psamp, vec2(tc.r+h,tc.g)).g;
-			float pd = texture2D(psamp, vec2(tc.r,tc.g-h)).g;
-			float pu = texture2D(psamp, vec2(tc.r,tc.g+h)).g;
+			float pl = texture2D(samp, vec2(tc.r-h,tc.g)).b>0. ? texture2D(psamp, vec2(tc.r-h,tc.g)).g : -pc;
+			float pr = texture2D(samp, vec2(tc.r+h,tc.g)).b>0. ? texture2D(psamp, vec2(tc.r+h,tc.g)).g : -pc;
+			float pd = texture2D(samp, vec2(tc.r,tc.g-h)).b>0. ? texture2D(psamp, vec2(tc.r,tc.g-h)).g : -pc;
+			float pu = texture2D(samp, vec2(tc.r,tc.g+h)).b>0. ? texture2D(psamp, vec2(tc.r,tc.g+h)).g : -pc;
+			// float pl = texture2D(psamp, vec2(tc.r-h,tc.g)).g;
+			// float pr = texture2D(psamp, vec2(tc.r+h,tc.g)).g;
+			// float pd = texture2D(psamp, vec2(tc.r,tc.g-h)).g;
+			// float pu = texture2D(psamp, vec2(tc.r,tc.g+h)).g;
 
 			//extrapolate the pressure
 			pl = tc.r>h ? pl : 2.*pc-pr;
@@ -184,7 +191,7 @@
 		}
 	</script>
 
-	<script id="fs-res" type="x-shader/x-fragment">
+	<script id="fs-residue" type="x-shader/x-fragment">
 		#ifdef GL_ES
 			precision highp float;
 		#endif
@@ -195,18 +202,17 @@
 			gl_FragColor = texture2D(samp,tc);
 
 			if(gl_FragColor.b == 0.){
-				gl_FragColor.r = 0.;
+				gl_FragColor.a = 0.;
 				return;
 			}
 
 			float pc = gl_FragColor.g;
-			float pl = tc.r>h ? texture2D(samp, vec2(tc.r-h,tc.g)).g : pc;
-			float pr = tc.r<1.-h ? texture2D(samp, vec2(tc.r+h,tc.g)).g : pc;
-			float pd = tc.g>h ? texture2D(samp, vec2(tc.r,tc.g-h)).g : pc;
-			float pu = tc.g<1.-h ? texture2D(samp, vec2(tc.r,tc.g+h)).g : pc;
+			float pl = texture2D(samp, vec2(tc.r-h,tc.g)).b>0. ? texture2D(samp, vec2(tc.r-h,tc.g)).g : -pc;
+			float pr = texture2D(samp, vec2(tc.r+h,tc.g)).b>0. ? texture2D(samp, vec2(tc.r+h,tc.g)).g : -pc;
+			float pd = texture2D(samp, vec2(tc.r,tc.g-h)).b>0. ? texture2D(samp, vec2(tc.r,tc.g-h)).g : -pc;
+			float pu = texture2D(samp, vec2(tc.r,tc.g+h)).b>0. ? texture2D(samp, vec2(tc.r,tc.g+h)).g : -pc;
 
-			gl_FragColor.r = 4.*gl_FragColor.g-(pl+pr+pd+pu-gl_FragColor.r);
-			// gl_FragColor.g = 0.;
+			gl_FragColor.a = 4.*gl_FragColor.g-(pl+pr+pd+pu-gl_FragColor.r);
 		}
 	</script>
 
@@ -215,26 +221,17 @@
 			precision highp float;
 		#endif
 		uniform sampler2D samp;
-		uniform float h;
 		varying vec2 tc;
 		void main(void) {
 			gl_FragColor = texture2D(samp,tc);
 
-			if(gl_FragColor.b == 0.){
-				gl_FragColor.r = 0.;
+			if(gl_FragColor.b < 1.){
+			// if(gl_FragColor.b == 0.){
+				gl_FragColor.rb = vec2(0.);
 				return;
 			}
-			else{
-				gl_FragColor.b = 1.;
-			}
 
-			float pc = gl_FragColor.g;
-			float pl = tc.r>h ? texture2D(samp, vec2(tc.r-h,tc.g)).g : pc;
-			float pr = tc.r<1.-h ? texture2D(samp, vec2(tc.r+h,tc.g)).g : pc;
-			float pd = tc.g>h ? texture2D(samp, vec2(tc.r,tc.g-h)).g : pc;
-			float pu = tc.g<1.-h ? texture2D(samp, vec2(tc.r,tc.g+h)).g : pc;
-
-			gl_FragColor.r = gl_FragColor.r-(pl+pr+pd+pu-4.*gl_FragColor.g);
+			gl_FragColor.r = gl_FragColor.a;
 			gl_FragColor.g = 0.;
 		}
 	</script>
@@ -257,13 +254,13 @@
 			}
 
 			float pc = gl_FragColor.g;
-			float pl = tc.r>h ? texture2D(samp, vec2(tc.r-h,tc.g)).g : pc;
-			float pr = tc.r<1.-h ? texture2D(samp, vec2(tc.r+h,tc.g)).g : pc;
-			float pd = tc.g>h ? texture2D(samp, vec2(tc.r,tc.g-h)).g : pc;
-			float pu = tc.g<1.-h ? texture2D(samp, vec2(tc.r,tc.g+h)).g : pc;
+			float pl = texture2D(samp, vec2(tc.r-h,tc.g)).b>0. ? texture2D(samp, vec2(tc.r-h,tc.g)).g : -pc;
+			float pr = texture2D(samp, vec2(tc.r+h,tc.g)).b>0. ? texture2D(samp, vec2(tc.r+h,tc.g)).g : -pc;
+			float pd = texture2D(samp, vec2(tc.r,tc.g-h)).b>0. ? texture2D(samp, vec2(tc.r,tc.g-h)).g : -pc;
+			float pu = texture2D(samp, vec2(tc.r,tc.g+h)).b>0. ? texture2D(samp, vec2(tc.r,tc.g+h)).g : -pc;
 
 			gl_FragColor.g += alpha*((pl+pr+pd+pu-gl_FragColor.r)/4.-gl_FragColor.g);
-			gl_FragColor.g = gl_FragColor.g>0. ? gl_FragColor.g : 0.;
+			gl_FragColor.g = max(0.,gl_FragColor.g);
 		}
 	</script>
 
@@ -272,17 +269,25 @@
 			precision highp float;
 		#endif
 		uniform sampler2D samp,csamp;
+		uniform float h;
 		varying vec2 tc;
 
 		void main(void) {
 			gl_FragColor = texture2D(samp,tc);
-			gl_FragColor.g += texture2D(csamp,tc).g*2.;
+			vec2 mtc = tc;	//modified texture coord
+			if(gl_FragColor.b > 0.){
+				mtc.r += (fract(tc.r/2./h)>0.5 && texture2D(samp,vec2(tc.r+h,tc.g)).b==0.) ? 0.5*h : 0.;
+				mtc.r -= (fract(tc.r/2./h)<0.5 && texture2D(samp,vec2(tc.r-h,tc.g)).b==0.) ? 0.5*h : 0.;
+				mtc.g += (fract(tc.g/2./h)>0.5 && texture2D(samp,vec2(tc.r,tc.g+h)).b==0.) ? 0.5*h : 0.;
+				mtc.g -= (fract(tc.g/2./h)<0.5 && texture2D(samp,vec2(tc.r,tc.g-h)).b==0.) ? 0.5*h : 0.;
+				gl_FragColor.g += texture2D(csamp,mtc).g*4.;
+			}
 		}
 	</script>
 
 	<script id="vs-particles" type="x-shader/x-vertex"> 
 		attribute vec2 aId;
-			uniform sampler2D samp;
+		uniform sampler2D samp;
 		varying vec2 vel;
 
 		void main(void) {
@@ -387,7 +392,7 @@
 		return fb;
 	}
 
-	function bindFramebuffer(gl,texture){
+	function addFramebuffer(gl,texture){
 		texture.fb = textureFramebuffer(gl,texture);
 	}
 
@@ -395,6 +400,73 @@
 		gl.useProgram(prog);
 		var sampLoc  = gl.getUniformLocation(prog, samp);
 		gl.uniform1i(sampLoc, texture.id);
+	}
+
+	function render(gl,prog,src,tgt,uniforms){
+		gl.useProgram(prog);
+		setSampler(gl,prog,"samp",src);
+
+		if(uniforms){
+			for(var u in uniforms){
+				gl.uniform1f(gl.getUniformLocation(prog, u), uniforms[u]);
+			}
+		}
+		if(!tgt){
+			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+		}
+		else{
+			gl.bindFramebuffer(gl.FRAMEBUFFER, tgt.fb);
+		}
+		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+		gl.flush();
+	}
+
+	function DoubleTextures(gl,size){
+		this.gl = gl;
+		this.size = size;
+		this.textures = new Array();
+		this.textures[0] = createTexture(gl,this.size,this.size);
+		this.textures[1] = createTexture(gl,this.size,this.size);
+		addFramebuffer(gl,this.textures[0]);
+		addFramebuffer(gl,this.textures[1]);
+		this.current = 0;
+		this.other = 1;
+
+		this.runProgram = function(prog){
+			render(this.gl,prog,this.textures[this.current],this.textures[this.other]);
+
+			this.swap();
+		}
+
+		this.swap = function(){
+			this.current = this.other;
+			this.other = (this.other+1)%2;
+		}
+
+		this.show = function(prog){
+			render(this.gl,prog,this.textures[this.current],null);
+		}
+
+		this.currentTexture = function(){
+			return this.textures[this.current];
+		}
+
+		this.otherTexture = function(){
+			return this.textures[this.other];
+		}
+
+		this.setSampler = function(prog,samp){
+			if(samp === undefined){
+				setSampler(this.gl,prog,"samp",this.textures[this.current]);
+			}
+			else{
+				setSampler(this.gl,prog,samp,this.textures[this.current]);
+			}
+		}
+
+		this.bindFramebuffer = function(){
+			this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.textures[this.current].fb);
+		}
 	}
 
 	function Grid(gl,size){
@@ -414,71 +486,54 @@
 			gl.enableVertexAttribArray(aPosLoc);
 			gl.vertexAttribPointer(aPosLoc, 2, gl.FLOAT, gl.FALSE, 0, 0);
 
-			this.textures = new Array();
-			for(var i = 0 ; i < 3 ; i++){
-				this.textures[i] = createTexture(gl,this.size,this.size);
-				bindFramebuffer(gl,this.textures[i]);
-			}
-			this.current = 0;
-			this.other = 1;
-			this.saved = 2;
+			this.uvf = new DoubleTextures(gl,this.size); //u,v,fraction
+			this.saved_uvf = createTexture(gl,this.size,this.size);
+			addFramebuffer(gl,this.saved_uvf);
+			setSampler(gl,this.programs["update-particles"],"saved",this.saved_uvf);
+			this.rpf = new Array(); //multi levels of residue,pressure,fraction
+			this.rpf[0] = new DoubleTextures(gl,this.size);
 
 			this.levels = 1;
-			this.pressuretexures = new Array();
-			this.pressuretexures[0] = new Array();
-			this.pressuretexures[1] = new Array();
-			this.pressuretexures[0][0] = createTexture(gl,this.size,this.size);
-			this.pressuretexures[1][0] = createTexture(gl,this.size,this.size);
-			bindFramebuffer(gl,this.pressuretexures[0][0]);
-			bindFramebuffer(gl,this.pressuretexures[1][0]);
-			setSampler(gl,this.programs["proj"],"psamp",this.pressuretexures[0][0]);
 
 			this.setSpacing();
-			setSampler(gl,this.programs["update-particles"],"saved",this.textures[this.saved]);
 		}
 
 		this.findDivergence = function(){
-			this.render("div",this.textures[this.current],this.pressuretexures[0][0]);
+			this.render("div",this.uvf.currentTexture(),this.rpf[0].currentTexture());
 		}
 
 		this.solvePressure = function(){
-			var pre = 0;
-			var post = 20;
-			var top = 200;
 			if(this.levels>1) {
 				for (var k = 0; k < this.iterations; k++) {
 					for (var i = 0; i < this.levels-1; i++) {
 						this.setUniform1f("smooth","h",1/(this.size>>i));
-						this.setUniform1f("restrict","h",1/(this.size>>i));
-						for (var j = 0; j < pre/2; j++) {
-							this.render("smooth",this.pressuretexures[0][i],this.pressuretexures[1][i]);
-							this.render("smooth",this.pressuretexures[1][i],this.pressuretexures[0][i]);
+						this.setUniform1f("residue","h",1/(this.size>>i));
+						for (var j = 0; j < this.preiter; j++) {
+							this.rpf[i].runProgram(this.programs["smooth"]);
 						}
-						this.render("restrict",this.pressuretexures[0][i],this.pressuretexures[0][i+1]);
+						this.rpf[i].runProgram(this.programs["residue"]);
+						this.render("restrict",this.rpf[i].currentTexture(),this.rpf[i+1].currentTexture());
 					}
 
 					this.setUniform1f("pressure","h",1/(this.size>>(this.levels-1)));
-					for (var i = 0; i < top/2; i++) {
-						this.render("pressure",this.pressuretexures[0][this.levels-1],this.pressuretexures[1][this.levels-1]);
-						this.render("pressure",this.pressuretexures[1][this.levels-1],this.pressuretexures[0][this.levels-1]);
+					for (var i = 0; i < this.topiter; i++) {
+						this.rpf[this.levels-1].runProgram(this.programs["pressure"]);
 					}
 
 					for (var i = this.levels-2 ; i >= 0 ; i--) {
 						this.setUniform1f("smooth","h",1/(this.size>>i));
-						setSampler(this.gl,this.programs["prolong"],"csamp",this.pressuretexures[0][i+1]);
-						this.render("prolong",this.pressuretexures[0][i],this.pressuretexures[1][i]);
-						this.render("smooth",this.pressuretexures[1][i],this.pressuretexures[0][i]);
-						for (var j = 0; j < (post-1)/2; j++) {
-							this.render("smooth",this.pressuretexures[0][i],this.pressuretexures[1][i]);
-							this.render("smooth",this.pressuretexures[1][i],this.pressuretexures[0][i]);
+						this.setUniform1f("prolong","h",1/(this.size>>i));
+						this.rpf[i+1].setSampler(this.programs["prolong"],"csamp");
+						this.rpf[i].runProgram(this.programs["prolong"]);
+						for (var j = 0; j < this.postiter; j++) {
+							this.rpf[i].runProgram(this.programs["smooth"]);
 						}
 					}
 				}
 			}
 			else{
-				for (var i = 0; i < this.iterations/2; i++) {
-					this.render("pressure",this.pressuretexures[0][0],this.pressuretexures[1][0]);
-					this.render("pressure",this.pressuretexures[1][0],this.pressuretexures[0][0]);
+				for (var i = 0; i < this.iterations*this.topiter; i++) {
+					this.rpf[0].runProgram(this.programs["pressure"]);
 				}
 			}
 		}
@@ -486,6 +541,7 @@
 		this.makeIncompressible = function(){
 			this.findDivergence();
 			this.solvePressure();
+			this.rpf[0].setSampler(this.programs["proj"],"psamp");
 			this.runProgram("proj");
 		}
 
@@ -501,36 +557,15 @@
 		}
 
 		this.render = function(prog,src,tgt,uniforms){
-			var gl = this.gl;
-
-			gl.useProgram(this.programs[prog]);
-			var sampLoc  = gl.getUniformLocation(this.programs[prog], "samp");
-			gl.uniform1i(sampLoc, src.id);
-
-			if(uniforms){
-				for(var u in uniforms){
-					gl.uniform1f(gl.getUniformLocation(this.programs[prog], u), uniforms[u]);
-				}
-			}
-			if(!tgt){
-				gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-			}
-			else{
-				gl.bindFramebuffer(gl.FRAMEBUFFER, tgt.fb);
-			}
-			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-			gl.flush();
+			render(this.gl,this.programs[prog],src,tgt,uniforms);
 		}
 
 		this.runProgram = function(prog){
-			this.render(prog,this.textures[this.current],this.textures[this.other]);
-
-			this.current = this.other;
-			this.other = (this.other+1)%2;
+			this.uvf.runProgram(this.programs[prog]);
 		}
 
 		this.saveVelocities = function(){
-			this.render("default",this.textures[this.current],this.textures[this.saved]);
+			this.render("default",this.uvf.currentTexture(),this.saved_uvf);
 		}
 
 		this.setViscosity = function(a){
@@ -545,17 +580,15 @@
 		this.setLevels = function(n){
 			this.levels = n;
 			for (var i = 1; i < n; i++) {
-				this.pressuretexures[0][i] = createTexture(gl,this.size>>i,this.size>>i);
-				this.pressuretexures[1][i] = createTexture(gl,this.size>>i,this.size>>i);
-				bindFramebuffer(gl,this.pressuretexures[0][i]);
-				bindFramebuffer(gl,this.pressuretexures[1][i]);
+				this.rpf[i] = new DoubleTextures(this.gl,this.size>>i);
 			}
 		}
 
 		this.setSpacing = function(){
-			this.setUniform1f("div","h",1/this.size);
-			this.setUniform1f("pressure","h",1/this.size);
-			this.setUniform1f("proj","h",1/this.size);
+			var h = 1/this.size;
+			this.setUniform1f("div","h",h);
+			this.setUniform1f("pressure","h",h);
+			this.setUniform1f("proj","h",h);
 		}
 
 		this.setTimeStep = function(dt){
@@ -573,12 +606,7 @@
 		}
 
 		this.show = function(fs){
-			if(fs){
-				this.render(fs,this.textures[this.current],null);
-			}
-			else{
-				this.render("show",this.textures[this.current],null);
-			}
+			this.uvf.show(this.programs["show"]);
 		}
 
 		this._init();
@@ -610,13 +638,7 @@
 			gl.vertexAttribPointer(aIdLoc, 2, gl.FLOAT, gl.FALSE, 0, 0);
 			this.program = prog_particle;
 
-			this.textures = new Array();
-			this.textures[0] = createTexture(gl,this.size,this.size);
-			this.textures[1] = createTexture(gl,this.size,this.size);
-			bindFramebuffer(gl,this.textures[0]);
-			bindFramebuffer(gl,this.textures[1]);
-			this.current = 0;
-			this.other = 1;
+			this.textures = new DoubleTextures(gl,this.size);
 
 			gl.blendFunc(gl.ONE,gl.ONE);
 		}
@@ -641,8 +663,8 @@
 		this.setData = function(data){
 			var gl = this.gl;
 
-			gl.activeTexture(gl.TEXTURE0+this.textures[this.current].id);
-			gl.bindTexture(gl.TEXTURE_2D, this.textures[this.current]);
+			gl.activeTexture(gl.TEXTURE0+this.textures.currentTexture().id);
+			gl.bindTexture(gl.TEXTURE_2D, this.textures.currentTexture());
 			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.size, this.size, 0,
 				gl.RGBA, gl.FLOAT, data);
 		}
@@ -653,7 +675,7 @@
 			gl.enable(gl.BLEND);
 
 			gl.useProgram(this.program);
-			setSampler(gl,this.program,"samp",this.textures[this.current]);
+			this.textures.setSampler(this.program);
 			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 			gl.clear(gl.COLOR_BUFFER_BIT);
 			gl.drawArrays(gl.POINTS, 0, this.size*this.size);
@@ -668,29 +690,20 @@
 			gl.enable(gl.BLEND);
 
 			gl.useProgram(this.program);
-			setSampler(gl,this.program,"samp",this.textures[this.current]);
-			gl.bindFramebuffer(gl.FRAMEBUFFER, grid.textures[grid.current].fb);
+			this.textures.setSampler(this.program);
+			grid.uvf.bindFramebuffer();
 			gl.clear(gl.COLOR_BUFFER_BIT);
 			gl.drawArrays(gl.POINTS, 0, this.size*this.size);
 			gl.flush();
 
 			gl.disable(gl.BLEND);
 
-			grid.runProgram("average");
+			grid.runProgram("normalize");
 		}
 
 		this.updateFromGrid = function(grid){
-			var gl = this.gl;
-
-			gl.useProgram(grid.programs["update-particles"]);
-			setSampler(gl,grid.programs["update-particles"],"psamp",this.textures[this.current]);
-			setSampler(gl,grid.programs["update-particles"],"samp",grid.textures[grid.current]);
-			gl.bindFramebuffer(gl.FRAMEBUFFER, this.textures[this.other].fb);
-			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-			gl.flush();
-
-			this.current = this.other;
-			this.other = (this.other+1)%2;
+			grid.uvf.setSampler(grid.programs["update-particles"],"grid");
+			this.textures.runProgram(grid.programs["update-particles"]);
 		}
 
 		this._init();
@@ -706,6 +719,9 @@
 		this.grid.setTimeStep(parameters.timestep);
 		this.grid.iterations = parameters.iterations;
 		this.grid.setLevels(parameters.levels);
+		this.grid.preiter = parameters.preiter;
+		this.grid.postiter = parameters.postiter;
+		this.grid.topiter = parameters.topiter;
 
 		this.init = function(centerx,centery,width,vx,vy){
 			this.particles.initSquare(centerx,centery,width,vx,vy);
@@ -722,8 +738,6 @@
 			this.grid.runProgram("gravity");
 			this.grid.makeIncompressible();
 			this.particles.updateFromGrid(this.grid);
-
-			this.grid.render("res",this.grid.pressuretexures[0][0],this.grid.textures[this.grid.current]);
 
 			this.show();
 		}
@@ -797,22 +811,23 @@
 		gl.getExtension("OES_texture_float");
 
 		var mat = new Object();
-		mat.gravity = -0.5;
+		mat.gravity = -0.1;
 		mat.viscosity = 0.1;
 		var para = new Object();
-		para.timestep = 1/60;
-		para.iterations = 5;
-		para.levels = 8;
+		para.timestep = 1/120;
+		para.iterations = 2;
+		para.levels = 7;
+		para.preiter = 6;
+		para.postiter = 6;
+		para.topiter = 100;
 
 		sim = new FLIPSimulation(gl,512,512,mat,para);
 		sim.init(init[0],init[1],init[2],init[3],init[4]);
 		sim.particles.transferToGrid(sim.grid);
 		sim.show();
 
-		// sim.startAnimation();
-
 		// var t0 = Date.now();
-		// for (var i = 0; i < 80; i++) {
+		// for (var i = 0; i < 10; i++) {
 		// 	sim.step();
 		// }
 		// alert(Date.now()-t0);
