@@ -854,7 +854,7 @@
 		mat.gravity = -0.1;
 		mat.viscosity = 0.1;
 		var para = new Object();
-		para.timestep = 1/20;
+		para.timestep = 1/60;
 		para.iterations = 2;
 		para.levels = 7;
 		para.preiter = 6;
@@ -895,4 +895,7 @@
 	<button id ="toggle" onclick="toggleAnimation()">Start</button>
 	<button id ="reset" onclick="reset()">Reset</button>
 	<p id="fps">FPS:NA</p>
+	<h3>Reference</h3>
+	<p>[1]<i>Y Zhu, R Bridson</i>: <a href="http://www-devel.cs.ubc.ca/~rbridson/docs/yzhu_msc.pdf">Animating sand as a fluid</a>.</p>
+	<p>[2]<i>N Chentanez, M M&uuml;ller</i>: <a href="http://matthias-mueller-fischer.ch/publications/separatingBoundaries.pdf">A multigrid fluid pressure solver handling separating solid boundary conditions</a>.</p>
 </body>
