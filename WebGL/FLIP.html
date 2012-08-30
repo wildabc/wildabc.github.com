@@ -81,6 +81,7 @@
 			vec2 c = (p+vec2(1.))/2.;
 			vec3 vel = texture2D(s, c).rgb;
 			float hh = h/2.;	//half of h
+			////the velocity of the wall is zero
 			if(c.r<hh){
 				vel.r *= c.r/hh;
 			}
@@ -121,7 +122,7 @@
 			vec2 sgvel = velInterp(saved, pos).rg;
 			vel = a*gvel+(1.-a)*(vel+gvel-sgvel);
 
-			// better idea?
+			// better idea? for-loop doesnot work
 			vec4 pv = vec4(pos,gvel);
 			float sdt = dt/5.;
 			pv = move(pv,sdt);
@@ -151,6 +152,7 @@
 			float vd = tc.g>h ? texture2D(samp, vec2(tc.r,tc.g-h)).g : -v;
 			float vu = tc.g<1.-h ? texture2D(samp, vec2(tc.r,tc.g+h)).g : -v;
 
+			//the air moves with the liquid
 			ul = texture2D(samp,vec2(tc.r-h,tc.g)).b>0. ? ul : u;
 			ur = texture2D(samp,vec2(tc.r+h,tc.g)).b>0. ? ur : u;
 			vd = texture2D(samp,vec2(tc.r,tc.g-h)).b>0. ? vd : v;
@@ -176,10 +178,6 @@
 			float pr = texture2D(samp, vec2(tc.r+h,tc.g)).b>0. ? texture2D(psamp, vec2(tc.r+h,tc.g)).g : -pc;
 			float pd = texture2D(samp, vec2(tc.r,tc.g-h)).b>0. ? texture2D(psamp, vec2(tc.r,tc.g-h)).g : -pc;
 			float pu = texture2D(samp, vec2(tc.r,tc.g+h)).b>0. ? texture2D(psamp, vec2(tc.r,tc.g+h)).g : -pc;
-			// float pl = texture2D(psamp, vec2(tc.r-h,tc.g)).g;
-			// float pr = texture2D(psamp, vec2(tc.r+h,tc.g)).g;
-			// float pd = texture2D(psamp, vec2(tc.r,tc.g-h)).g;
-			// float pu = texture2D(psamp, vec2(tc.r,tc.g+h)).g;
 
 			//extrapolate the pressure (should I do this?)
 			pl = tc.r>h ? pl : 2.*pc-pr;
@@ -200,21 +198,31 @@
 		uniform sampler2D samp;
 		uniform float h;
 		varying vec2 tc;
-		void main(void) {
-			gl_FragColor = texture2D(samp,tc);
 
-			if(gl_FragColor.b == 0.){
-				gl_FragColor.a = 0.;
-				return;
+		float residue(){	//same function in "smooth"
+			float f = texture2D(samp,tc).b;
+			if(f == 0.){
+				return 0.;
 			}
 
-			float pc = gl_FragColor.g;
-			float pl = texture2D(samp, vec2(tc.r-h,tc.g)).b>0. ? texture2D(samp, vec2(tc.r-h,tc.g)).g : -pc;
-			float pr = texture2D(samp, vec2(tc.r+h,tc.g)).b>0. ? texture2D(samp, vec2(tc.r+h,tc.g)).g : -pc;
-			float pd = texture2D(samp, vec2(tc.r,tc.g-h)).b>0. ? texture2D(samp, vec2(tc.r,tc.g-h)).g : -pc;
-			float pu = texture2D(samp, vec2(tc.r,tc.g+h)).b>0. ? texture2D(samp, vec2(tc.r,tc.g+h)).g : -pc;
+			//is this approximation correct?
+			float pc = texture2D(samp,tc).g;
+			float c;
+			c = max(0., f-texture2D(samp, vec2(tc.r-h,tc.g)).b);
+			float pl = (1.-c)*texture2D(samp, vec2(tc.r-h,tc.g)).g-c*pc;
+			c = max(0., f-texture2D(samp, vec2(tc.r+h,tc.g)).b);
+			float pr = (1.-c)*texture2D(samp, vec2(tc.r+h,tc.g)).g-c*pc;
+			c = max(0., f-texture2D(samp, vec2(tc.r,tc.g-h)).b);
+			float pd = (1.-c)*texture2D(samp, vec2(tc.r,tc.g-h)).g-c*pc;
+			c = max(0., f-texture2D(samp, vec2(tc.r,tc.g+h)).b);
+			float pu = (1.-c)*texture2D(samp, vec2(tc.r,tc.g+h)).g-c*pc;
 
-			gl_FragColor.a = 4.*gl_FragColor.g-(pl+pr+pd+pu-gl_FragColor.r);
+			return texture2D(samp,tc).r-(pl+pr+pd+pu-4.*pc);
+		}
+
+		void main(void) {
+			gl_FragColor = texture2D(samp,tc);
+			gl_FragColor.a = residue();
 		}
 	</script>
 
@@ -226,11 +234,6 @@
 		varying vec2 tc;
 		void main(void) {
 			gl_FragColor = texture2D(samp,tc);
-
-			// if(gl_FragColor.b < 1.){
-			// 	gl_FragColor.rb = vec2(0.);
-			// 	return;
-			// }
 
 			gl_FragColor.r = gl_FragColor.a;
 			gl_FragColor.g = 0.;
@@ -245,28 +248,38 @@
 		uniform float h;
 		varying vec2 tc;
 
-		uniform float omega;
+		uniform float omega;	//omega-damped
+
+		float residue(){	//same function in "residue"
+			float f = texture2D(samp,tc).b;
+			if(f == 0.){
+				return 0.;
+			}
+
+			//is this approximation correct?
+			float pc = texture2D(samp,tc).g;
+			float c;
+			c = max(0., f-texture2D(samp, vec2(tc.r-h,tc.g)).b);
+			float pl = (1.-c)*texture2D(samp, vec2(tc.r-h,tc.g)).g-c*pc;
+			c = max(0., f-texture2D(samp, vec2(tc.r+h,tc.g)).b);
+			float pr = (1.-c)*texture2D(samp, vec2(tc.r+h,tc.g)).g-c*pc;
+			c = max(0., f-texture2D(samp, vec2(tc.r,tc.g-h)).b);
+			float pd = (1.-c)*texture2D(samp, vec2(tc.r,tc.g-h)).g-c*pc;
+			c = max(0., f-texture2D(samp, vec2(tc.r,tc.g+h)).b);
+			float pu = (1.-c)*texture2D(samp, vec2(tc.r,tc.g+h)).g-c*pc;
+
+			return texture2D(samp,tc).r-(pl+pr+pd+pu-4.*pc);
+		}
 
 		void main(void) {
 			gl_FragColor = texture2D(samp,tc);
 			if(gl_FragColor.b == 0.){
+			// if(gl_FragColor.b < 1.){
 				gl_FragColor.g = 0.;
 				return;
 			}
-			//Is this approximation correct?
-			if(gl_FragColor.b < 1.){
-				gl_FragColor.g += omega*(-gl_FragColor.r/8.-gl_FragColor.g);
-				gl_FragColor.g = max(0.,gl_FragColor.g);
-				return;
-			}
 
-			float pc = gl_FragColor.g;
-			float pl = texture2D(samp, vec2(tc.r-h,tc.g)).b>0. ? texture2D(samp, vec2(tc.r-h,tc.g)).g : -pc;
-			float pr = texture2D(samp, vec2(tc.r+h,tc.g)).b>0. ? texture2D(samp, vec2(tc.r+h,tc.g)).g : -pc;
-			float pd = texture2D(samp, vec2(tc.r,tc.g-h)).b>0. ? texture2D(samp, vec2(tc.r,tc.g-h)).g : -pc;
-			float pu = texture2D(samp, vec2(tc.r,tc.g+h)).b>0. ? texture2D(samp, vec2(tc.r,tc.g+h)).g : -pc;
-
-			gl_FragColor.g += omega*((pl+pr+pd+pu-gl_FragColor.r)/4.-gl_FragColor.g);
+			gl_FragColor.g -= omega*residue()/4.;
 			gl_FragColor.g = max(0.,gl_FragColor.g);
 		}
 	</script>
@@ -281,7 +294,7 @@
 
 		void main(void) {
 			gl_FragColor = texture2D(samp,tc);
-			vec2 mtc = tc;	//modified texture coord
+			vec2 mtc = tc;	//modified texture coord, considering the boundary condition
 			if(gl_FragColor.b > 0.){
 				mtc.r += (fract(tc.r/2./h)>0.5 && texture2D(samp,vec2(tc.r+h,tc.g)).b==0.) ? 0.5*h : 0.;
 				mtc.r -= (fract(tc.r/2./h)<0.5 && texture2D(samp,vec2(tc.r-h,tc.g)).b==0.) ? 0.5*h : 0.;
@@ -501,6 +514,7 @@
 			this.rpf[0] = new DoubleTextures(gl,this.size);
 
 			this.levels = 1;
+			this.omega = 1;
 
 			this.setSpacing();
 		}
@@ -510,9 +524,10 @@
 		}
 
 		this.solvePressure = function(){
+		////this problem is cell-centered. The pressure of air is considered negative. Take care of "smooth","residue","prolong"
 			if(this.levels>1) {
 				for (var k = 0; k < this.iterations; k++) {
-					this.setUniform1f("smooth","omega",0.8);
+					this.setUniform1f("smooth","omega",this.omega);
 					for (var i = 0; i < this.levels-1; i++) {
 						this.setUniform1f("smooth","h",1/(this.size>>i));
 						this.setUniform1f("residue","h",1/(this.size>>i));
@@ -529,7 +544,7 @@
 						this.rpf[this.levels-1].runProgram(this.programs["smooth"]);
 					}
 
-					this.setUniform1f("smooth","omega",0.8);
+					this.setUniform1f("smooth","omega",this.omega);
 					for (var i = this.levels-2 ; i >= 0 ; i--) {
 						this.setUniform1f("smooth","h",1/(this.size>>i));
 						this.setUniform1f("prolong","h",1/(this.size>>i));
@@ -642,7 +657,7 @@
 			gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
 			var prog_particle = getProgram(gl,"vs-particles","fs-particles");
 			gl.useProgram(prog_particle);
-			var aIdLoc = 1;
+			var aIdLoc = 1;	//manully set attibute location, or these locations will conflict
 			gl.bindAttribLocation(prog_particle,aIdLoc,"aId");
 			gl.linkProgram(prog_particle);
 			gl.enableVertexAttribArray(aIdLoc);
@@ -652,7 +667,7 @@
 			this.textures = new DoubleTextures(gl,this.size);
 
 			gl.blendFunc(gl.ONE,gl.ONE);
-			this.length = 0;
+			this.length = 0;	//number of particles
 		}
 
 		this.initPosVel = function(data){
@@ -730,6 +745,7 @@
 		this.grid.preiter = parameters.preiter;
 		this.grid.postiter = parameters.postiter;
 		this.grid.topiter = parameters.topiter;
+		this.grid.omega = parameters.omega;
 
 		this.initParticles = function(data){
 			var n = this.grid.size;
@@ -744,20 +760,56 @@
 				}
 			}
 
-			var p = Math.ceil(Math.log(sum)/2/Math.LN2);
-			var pn = Math.pow(2,p)*2;
-			var pdata = new Float32Array(4*4*sum);
+			var ppc = n*n/sum;	//particles per grid cell
+			if(ppc >= 4){
+				ppc = 4;
+			}
+			else if(ppc >= 2){
+				ppc = 2;
+			}
+			else if(ppc >= 1){
+				ppc = 1;
+			}
+			else{
+				throw("No enough space for particles!");
+			}
+			var pdata = new Float32Array(ppc*4*sum);
 			var q = 2/n/4;
 			var j = 0;
-			for(var i=0 ; i<n*n ; i++){
-				x = (i%n-(n-1)/2)/n*2;
-				y = (Math.floor(i/n)-(n-1)/2)/n*2;
-				if(data[i]>0){
-					pdata.set([x+q,y+q,0,0],(4*j)*4);
-					pdata.set([x-q,y+q,0,0],(4*j+1)*4);
-					pdata.set([x+q,y-q,0,0],(4*j+2)*4);
-					pdata.set([x-q,y-q,0,0],(4*j+3)*4);
-					j++;
+			////initialized with ppc particles per grid cell
+			////4 particles per grid cell are recommended
+			if(ppc == 4){
+				for(var i=0 ; i<n*n ; i++){
+					x = (i%n-(n-1)/2)/n*2;
+					y = (Math.floor(i/n)-(n-1)/2)/n*2;
+					if(data[i]>0){
+						pdata.set([x+q,y+q,0,0],(ppc*j)*4);
+						pdata.set([x-q,y+q,0,0],(ppc*j+1)*4);
+						pdata.set([x+q,y-q,0,0],(ppc*j+2)*4);
+						pdata.set([x-q,y-q,0,0],(ppc*j+3)*4);
+						j++;
+					}
+				}
+			}
+			else if(ppc == 2){
+				for(var i=0 ; i<n*n ; i++){
+					x = (i%n-(n-1)/2)/n*2;
+					y = (Math.floor(i/n)-(n-1)/2)/n*2;
+					if(data[i]>0){
+						pdata.set([x+q,y+q,0,0],(ppc*j)*4);
+						pdata.set([x-q,y-q,0,0],(ppc*j+1)*4);
+						j++;
+					}
+				}
+			}
+			else if(ppc == 1){
+				for(var i=0 ; i<n*n ; i++){
+					x = (i%n-(n-1)/2)/n*2;
+					y = (Math.floor(i/n)-(n-1)/2)/n*2;
+					if(data[i]>0){
+						pdata.set([x,y,0,0],(ppc*j)*4);
+						j++;
+					}
 				}
 			}
 
@@ -809,14 +861,6 @@
 		}
 	}
 
-	function showTexture(gl,prog,texture){
-		gl.useProgram(prog);
-		setSampler(gl,prog,"samp",texture);
-		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-		gl.flush();
-	}
-
 	function toggleAnimation(){
 		if(!sim.running){
 			sim.startAnimation();
@@ -852,22 +896,26 @@
 
 		var mat = new Object();
 		mat.gravity = -0.1;
-		mat.viscosity = 0.1;
+		mat.viscosity = 0.1;	//viscosity-relative parameter, not viscosity itself
 		var para = new Object();
 		para.timestep = 1/60;
-		para.iterations = 2;
-		para.levels = 7;
-		para.preiter = 6;
-		para.postiter = 6;
-		para.topiter = 100;
+		para.iterations = 3;
+		para.levels = 7;	//levels of multigrid
+		para.preiter = 6;	//pre-smoothing
+		para.postiter = 6;	//post-smoothing
+		para.topiter = 100;	//iterations on the top level of grid
+		para.omega = 0.8;	//omega-damped Jacobi
 
 		var n = 512;
 		initdata = new Uint8Array(n*n);
 		for(var i=0 ; i<n*n ; i++){
 			x = (i%n-(n-1)/2)/n*2;
 			y = (Math.floor(i/n)-(n-1)/2)/n*2;
-			// if(x*x+y*y<0.05 || y<-0.55){
-			if(x<0 && y<0){
+			////different shapes
+			////Though any shape can be simulated, it is recommended that the area of the liquid is less than 1/4 of the area of the whole viewport (to keep 4 particles per cell).
+			// if(x*x+y*y<0.1 || y<-0.7){	//droplet
+			// if(y<-0.5){	//still liquid
+			if(x<0 && y<0){	//break square
 				initdata[i] = 1;
 			}
 			else{
@@ -875,15 +923,9 @@
 			}
 		}
 
-		sim = new FLIPSimulation(gl,n,n,mat,para);
+		sim = new FLIPSimulation(gl,n,n,mat,para);	//size cannot be larger than the canvas
 		sim.initParticles(initdata);
 		sim.show();
-
-		// var t0 = Date.now();
-		for (var i = 0; i < 0; i++) {
-			sim.step();
-		}
-		// alert(Date.now()-t0);
 	}
 
 </script> 
