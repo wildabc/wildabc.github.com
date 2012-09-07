@@ -46,12 +46,22 @@
 		#ifdef GL_ES
 			precision highp float;
 		#endif
-		uniform sampler2D samp;
+		uniform sampler2D usamp,vsamp;
+		uniform float h;
 		varying vec2 tc;
 		void main(void) {
-			vec4 t = texture2D(samp, tc);
-			gl_FragColor.rgb = t.b>0. ? t.rgb/t.b : vec3(0.);
-			gl_FragColor.a = t.a;
+			vec2 u = texture2D(usamp, tc).rb;
+			u.r = u.g>0. ? u.r/u.g : 0.;
+			u.r = tc.r < h ? 0. : u.r;
+			vec2 v = texture2D(vsamp, tc).gb;
+			v.r = v.g>0. ? v.r/v.g : 0.;
+			v.r = tc.g < h ? 0. : v.r;
+
+			float b = float(u.g>0. && v.g>0. 
+				&& texture2D(usamp, vec2(tc.r+h,tc.g)).b>0.
+				&& texture2D(vsamp, vec2(tc.r,tc.g+h)).b>0.
+				);
+			gl_FragColor = vec4(u.r,v.r,b,1.);
 		}
 	</script>
 
@@ -60,11 +70,12 @@
 			precision highp float;
 		#endif
 		uniform sampler2D samp;
-		uniform float gdt;
+		uniform float gdt,h;
 		varying vec2 tc;
 		void main(void) {
 			vec4 t = texture2D(samp, tc);
 			gl_FragColor.g = t.g+gdt;
+			gl_FragColor.g = tc.g<h ? 0. : gl_FragColor.g;
 			gl_FragColor.rba = t.rba;
 		}
 	</script>
@@ -74,34 +85,22 @@
 			precision highp float;
 		#endif
 		uniform sampler2D samp,grid,saved;
-		uniform float dt,a,h;
+		uniform float h,dt,a;
 		varying vec2 tc;
 
 		vec3 velInterp(sampler2D s,vec2 p){
 			vec2 c = (p+vec2(1.))/2.;
-			vec3 vel = texture2D(s, c).rgb;
-			float hh = h/2.;	//half of h
-			////the velocity of the wall is zero
-			if(c.r<hh){
-				vel.r *= c.r/hh;
-			}
-			if(c.r>1.-hh){
-				vel.r *= (1.-c.r)/hh;
-			}
-			if(c.g<hh){
-				vel.g *= c.g/hh;
-			}
-			if(c.g>1.-hh){
-				vel.g *= (1.-c.g)/hh;
-			}
-			return vel;
+			float u = texture2D(s, vec2(c.r+h/2., clamp(c.g,0.5*h,1.-0.5*h))).r;
+			float v = texture2D(s, vec2(clamp(c.r,0.5*h,1.-0.5*h), c.g+h/2.)).g;
+			float f = texture2D(s, clamp(c,0.5*h,1.-0.5*h)).b;
+			return vec3(u,v,f);
 		}
 
 		vec4 move(vec4 posvel, float sdt){
 			vec2 pos = posvel.rg;
 			vec2 vel = posvel.ba;
-			float min = -1.+0.01*h;
-			float max = 1.-0.01*h;
+			float min = -1.+0.02*h;
+			float max = 1.-0.02*h;
 			vec2 midpos = clamp(pos + vel*sdt/2.,min,max);
 			vec3 midvel = velInterp(grid,midpos);
 			vec2 newpos = midvel.b==1. ? clamp(pos + midvel.rg*sdt,min,max) : clamp(pos + vel*sdt,min,max);
@@ -139,24 +138,10 @@
 		uniform float h;
 		varying vec2 tc;
 		void main(void) {
-			float u = texture2D(samp, tc).r;
-			float v = texture2D(samp, tc).g;
-
-			//extrapolate the velocity
-			float ul = tc.r>h ? texture2D(samp, vec2(tc.r-h,tc.g)).r : -u;
-			float ur = tc.r<1.-h ? texture2D(samp, vec2(tc.r+h,tc.g)).r : -u;
-			float vd = tc.g>h ? texture2D(samp, vec2(tc.r,tc.g-h)).g : -v;
-			float vu = tc.g<1.-h ? texture2D(samp, vec2(tc.r,tc.g+h)).g : -v;
-
-			//the air moves with the liquid
-			ul = texture2D(samp,vec2(tc.r-h,tc.g)).b>0. ? ul : u;
-			ur = texture2D(samp,vec2(tc.r+h,tc.g)).b>0. ? ur : u;
-			vd = texture2D(samp,vec2(tc.r,tc.g-h)).b>0. ? vd : v;
-			vu = texture2D(samp,vec2(tc.r,tc.g+h)).b>0. ? vu : v;
-
 			if(texture2D(samp,tc).b>0.){
 				gl_FragColor.b = 1.;
-				gl_FragColor.r = 0.5*(ur-ul+vu-vd);
+				gl_FragColor.r = texture2D(samp,vec2(tc.r+h,tc.g)).r-texture2D(samp,tc).r
+					+texture2D(samp,vec2(tc.r,tc.g+h)).g-texture2D(samp,tc).g;
 			}
 		}
 	</script>
@@ -169,20 +154,12 @@
 		uniform float h;
 		varying vec2 tc;
 		void main(void) {
-			float pc = texture2D(psamp,tc).g;
-			float pl = texture2D(samp, vec2(tc.r-h,tc.g)).b>0. ? texture2D(psamp, vec2(tc.r-h,tc.g)).g : -pc;
-			float pr = texture2D(samp, vec2(tc.r+h,tc.g)).b>0. ? texture2D(psamp, vec2(tc.r+h,tc.g)).g : -pc;
-			float pd = texture2D(samp, vec2(tc.r,tc.g-h)).b>0. ? texture2D(psamp, vec2(tc.r,tc.g-h)).g : -pc;
-			float pu = texture2D(samp, vec2(tc.r,tc.g+h)).b>0. ? texture2D(psamp, vec2(tc.r,tc.g+h)).g : -pc;
-
-			//extrapolate the pressure (should I do this?)
-			pl = tc.r>h ? pl : 2.*pc-pr;
-			pr = tc.r<1.-h ? pr : 2.*pc-pl;
-			pd = tc.g>h ? pd : 2.*pc-pu;
-			pu = tc.g<1.-h ? pu : 2.*pc-pd;
-
-			gl_FragColor.r = texture2D(samp,tc).r-0.5*(pr-pl);
-			gl_FragColor.g = texture2D(samp,tc).g-0.5*(pu-pd);
+			float dx = texture2D(psamp,tc).g-texture2D(psamp,vec2(tc.r-h,tc.g)).g;
+			float dy = texture2D(psamp,tc).g-texture2D(psamp,vec2(tc.r,tc.g-h)).g;
+			dx = (texture2D(psamp,tc).b>0. && texture2D(psamp,vec2(tc.r-h,tc.g)).b>0.) ? dx : 2.*dx;
+			dy = (texture2D(psamp,tc).b>0. && texture2D(psamp,vec2(tc.r,tc.g-h)).b>0.) ? dy : 2.*dy;
+			gl_FragColor.r = texture2D(samp,tc).r - dx;
+			gl_FragColor.g = texture2D(samp,tc).g - dy;
 			gl_FragColor.ba = texture2D(samp,tc).ba;
 		}
 	</script>
@@ -304,15 +281,16 @@
 	<script id="vs-particles" type="x-shader/x-vertex"> 
 		attribute vec2 aId;
 		uniform sampler2D samp;
+		uniform float offsetx,offsety;
 		varying vec2 vel;
 
 		void main(void) {
 			vec4 t = texture2D(samp,aId);
-			gl_Position = vec4(t.rg, 0., 1.);
+			gl_Position = vec4(t.rg+vec2(offsetx,offsety), 0., 1.);
 			gl_PointSize = 2.;
 			vel = t.ba;
 		}
-	</script>
+	</script> 
 
 	<script id="fs-particles" type="x-shader/x-fragment"> 
 		#ifdef GL_ES
@@ -363,7 +341,7 @@
 		return program;
 	}
 
-	function createTexture(gl,width,height,pixels){
+	function createTexture(gl,width,height,pixels,filter,wrap){
 		if(!gl.ntextures){
 			gl.ntextures = 1;
 		}
@@ -384,10 +362,23 @@
 			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0,
 				gl.RGBA, gl.FLOAT, pixels);
 		}
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+		if(filter !== undefined){
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+		}
+		else{
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		}
+		if(wrap !== undefined){
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
+		}
+		else{
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+		}
 
 		texture.id = id;
 		texture.width = width;
@@ -437,12 +428,12 @@
 		gl.flush();
 	}
 
-	function DoubleTextures(gl,size){
+	function DoubleTextures(gl,size,filter,wrap){
 		this.gl = gl;
 		this.size = size;
 		this.textures = new Array();
-		this.textures[0] = createTexture(gl,this.size,this.size);
-		this.textures[1] = createTexture(gl,this.size,this.size);
+		this.textures[0] = createTexture(gl,this.size,this.size,null,filter,wrap);
+		this.textures[1] = createTexture(gl,this.size,this.size,null,filter,wrap);
 		addFramebuffer(gl,this.textures[0]);
 		addFramebuffer(gl,this.textures[1]);
 		this.current = 0;
@@ -502,8 +493,14 @@
 			gl.enableVertexAttribArray(aPosLoc);
 			gl.vertexAttribPointer(aPosLoc, 2, gl.FLOAT, gl.FALSE, 0, 0);
 
-			this.uvf = new DoubleTextures(gl,this.size); //u,v,fraction
-			this.saved_uvf = createTexture(gl,this.size,this.size);
+			this.utex = createTexture(gl,this.size,this.size);
+			this.vtex = createTexture(gl,this.size,this.size);
+			addFramebuffer(gl,this.utex);
+			addFramebuffer(gl,this.vtex);
+			setSampler(gl,this.programs["normalize"],"usamp",this.utex);
+			setSampler(gl,this.programs["normalize"],"vsamp",this.vtex);
+			this.uvf = new DoubleTextures(gl,this.size,gl.LINEAR,gl.REPEAT); //u,v,fraction
+			this.saved_uvf = createTexture(gl,this.size,this.size,null,gl.LINEAR,gl.REPEAT);
 			addFramebuffer(gl,this.saved_uvf);
 			setSampler(gl,this.programs["update-particles"],"saved",this.saved_uvf);
 			this.rpf = new Array(); //multi levels of residue,pressure,fraction
@@ -609,6 +606,8 @@
 
 		this.setSpacing = function(){
 			var h = 1/this.size;
+			this.setUniform1f("normalize","h",h);
+			this.setUniform1f("gravity","h",h);
 			this.setUniform1f("div","h",h);
 			this.setUniform1f("proj","h",h);
 		}
@@ -691,6 +690,8 @@
 
 			gl.useProgram(this.program);
 			this.textures.setSampler(this.program);
+			gl.uniform1f(gl.getUniformLocation(this.program, "offsetx"),0);
+			gl.uniform1f(gl.getUniformLocation(this.program, "offsety"),0);
 			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 			gl.clear(gl.COLOR_BUFFER_BIT);
 			gl.drawArrays(gl.POINTS, 0, this.length);
@@ -706,7 +707,16 @@
 
 			gl.useProgram(this.program);
 			this.textures.setSampler(this.program);
-			grid.uvf.bindFramebuffer();
+			gl.uniform1f(gl.getUniformLocation(this.program, "offsetx"),1/grid.size);
+			gl.uniform1f(gl.getUniformLocation(this.program, "offsety"),0);
+			gl.bindFramebuffer(gl.FRAMEBUFFER, grid.utex.fb);
+			gl.clear(gl.COLOR_BUFFER_BIT);
+			gl.drawArrays(gl.POINTS, 0, this.length);
+			gl.flush();
+
+			gl.uniform1f(gl.getUniformLocation(this.program, "offsetx"),0);
+			gl.uniform1f(gl.getUniformLocation(this.program, "offsety"),1/grid.size);
+			gl.bindFramebuffer(gl.FRAMEBUFFER, grid.vtex.fb);
 			gl.clear(gl.COLOR_BUFFER_BIT);
 			gl.drawArrays(gl.POINTS, 0, this.length);
 			gl.flush();
@@ -901,7 +911,7 @@
 		para.postiter = 6;	//post-smoothing
 		para.topiter = 100;	//iterations on the top level of grid
 		para.omega = 0.8;	//omega-damped Jacobi
-
+		
 		var n = 512;
 		initdata = new Uint8Array(n*n);
 		for(var i=0 ; i<n*n ; i++){
@@ -934,7 +944,6 @@
 	<button id ="reset" onclick="reset()">Reset</button>
 	<p id="fps">FPS:NA</p>
 	<h3>Reference</h3>
-	<p>[1]<i>Y Zhu, R Bridson</i>: <a href="http://www-devel.cs.ubc.ca/~rbridson/docs/zhu-siggraph05-sandfluid.pdf">Animating sand as a fluid</a>.</p>
-	<p>[2]<i>Jos Stam</i>: <a href="http://www.dgp.toronto.edu/people/stam/reality/Research/pdf/GDC03.pdf">Real-Time Fluid Dynamics for Games</a>.</p>
-	<p>[3]<i>N Chentanez, M M&uuml;ller</i>: <a href="http://matthias-mueller-fischer.ch/publications/separatingBoundaries.pdf">A multigrid fluid pressure solver handling separating solid boundary conditions</a>.</p>
+	<p>[1]<i>Y Zhu, R Bridson</i>: <a href="http://www-devel.cs.ubc.ca/~rbridson/docs/yzhu_msc.pdf">Animating sand as a fluid</a>.</p>
+	<p>[2]<i>N Chentanez, M M&uuml;ller</i>: <a href="http://matthias-mueller-fischer.ch/publications/separatingBoundaries.pdf">A multigrid fluid pressure solver handling separating solid boundary conditions</a>.</p>
 </body>
