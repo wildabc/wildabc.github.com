@@ -726,6 +726,7 @@
 	}
 
 	function FLIPSimulation(gl,gsize,psize,material,parameters){
+		this.gl = gl;
 		this.grid = new Grid(gl,gsize);
 		this.particles = new Particles(gl,psize);
 
@@ -776,8 +777,8 @@
 			////4 particles per grid cell are recommended
 			if(ppc == 4){
 				for(var i=0 ; i<n*n ; i++){
-					x = (i%n-(n-1)/2)/n*2;
-					y = (Math.floor(i/n)-(n-1)/2)/n*2;
+					var x = (i%n-(n-1)/2)/n*2;
+					var y = (Math.floor(i/n)-(n-1)/2)/n*2;
 					if(data[i]>0){
 						pdata.set([x+q,y+q,0,0],(ppc*j)*4);
 						pdata.set([x-q,y+q,0,0],(ppc*j+1)*4);
@@ -789,8 +790,8 @@
 			}
 			else if(ppc == 2){
 				for(var i=0 ; i<n*n ; i++){
-					x = (i%n-(n-1)/2)/n*2;
-					y = (Math.floor(i/n)-(n-1)/2)/n*2;
+					var x = (i%n-(n-1)/2)/n*2;
+					var y = (Math.floor(i/n)-(n-1)/2)/n*2;
 					if(data[i]>0){
 						pdata.set([x+q,y+q,0,0],(ppc*j)*4);
 						pdata.set([x-q,y-q,0,0],(ppc*j+1)*4);
@@ -800,8 +801,8 @@
 			}
 			else if(ppc == 1){
 				for(var i=0 ; i<n*n ; i++){
-					x = (i%n-(n-1)/2)/n*2;
-					y = (Math.floor(i/n)-(n-1)/2)/n*2;
+					var x = (i%n-(n-1)/2)/n*2;
+					var y = (Math.floor(i/n)-(n-1)/2)/n*2;
 					if(data[i]>0){
 						pdata.set([x,y,0,0],(ppc*j)*4);
 						j++;
@@ -844,6 +845,17 @@
 						document.getElementById("fps").innerHTML = "FPS:"+Math.round(frames*1000/(t1-t0));
 						t0 = t1;
 						frames = 0;
+
+						// fraction of liquid
+						//var n = self.grid.size;
+						//var pixels = new Uint8Array(4*n*n);
+						//var gl = self.gl;
+						//gl.readPixels(0, 0, n, n, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+						//var sum = 0;
+						//for (var i = 4*n*n-2 ; i >= 0; i -= 4) {
+						//	sum += pixels[i];
+						//}
+						//console.log("fraction of liquid:" + sum/n/n/255);
 					}
 				}
 				,1000*this.parameters.timestep);
@@ -905,8 +917,8 @@
 		var n = 512;
 		initdata = new Uint8Array(n*n);
 		for(var i=0 ; i<n*n ; i++){
-			x = (i%n-(n-1)/2)/n*2;
-			y = (Math.floor(i/n)-(n-1)/2)/n*2;
+			var x = (i%n-(n-1)/2)/n*2;
+			var y = (Math.floor(i/n)-(n-1)/2)/n*2;
 			////different shapes
 			////Though any shape can be simulated, it is recommended that the area of the liquid is less than 1/4 of the area of the whole viewport (to keep 4 particles per cell).
 			// if(x*x+y*y<0.1 || y<-0.7){	//droplet
