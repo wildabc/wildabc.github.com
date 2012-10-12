@@ -897,6 +897,8 @@
 	var sim;
 	var initdata;
 	function main() {
+		var t0 = Date.now();
+
 		var c = document.getElementById("c");
 		var gl = c.getContext("experimental-webgl");
 		if ( !gl ) alert("Can't get WebGL"); 
@@ -916,14 +918,26 @@
 
 		var n = 512;
 		initdata = new Uint8Array(n*n);
+		var shape = window.location.search.substring(1);
 		for(var i=0 ; i<n*n ; i++){
 			var x = (i%n-(n-1)/2)/n*2;
 			var y = (Math.floor(i/n)-(n-1)/2)/n*2;
 			////different shapes
 			////Though any shape can be simulated, it is recommended that the area of the liquid is less than 1/4 of the area of the whole viewport (to keep 4 particles per cell).
-			// if(x*x+y*y<0.1 || y<-0.7){	//droplet
-			// if(y<-0.5){	//still water
-			if(x<0 && y<0){	//break square
+			var b;
+			switch(shape){
+				case "droplet":	//droplet
+					b = x*x+y*y<0.1 || y<-0.7;
+					break;
+				case "still":	//still water
+					b = y<-0.5;
+					break;
+				default:	//break square
+					b = x<0 && y<0;
+					break;
+			}
+
+			if(b){	//break square
 				initdata[i] = 1;
 			}
 			else{
@@ -934,6 +948,8 @@
 		sim = new FLIPSimulation(gl,n,n,mat,para);	//size cannot be larger than the canvas
 		sim.initParticles(initdata);
 		sim.show();
+
+		console.log("Time of initialization: "+(Date.now()-t0)/1000+"s");
 	}
 
 </script> 
