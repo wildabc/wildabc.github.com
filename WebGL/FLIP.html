@@ -946,7 +946,7 @@
 		mat.gravity = -0.1;
 		mat.viscosity = 0.1;	//viscosity-relative FLIP/PIC parameter, not viscosity itself
 		var para = new Object();
-		para.timestep = 1/20;
+		para.timestep = 1/60;
 		para.iterations = 3;
 		para.levels = 7;	//levels of multigrid
 		para.preiter = 6;	//pre-smoothing
@@ -958,7 +958,7 @@
 		initdata = new Uint8Array(n*n);
 		var shape = window.location.search.substring(1);
 		if(shape == "text"){
-			var textpixels = textPixels("浣犲ソ\nHELLO",n/2,n*0.9,n);
+			var textpixels = textPixels("你好\nHELLO",n/2,n*0.9,n);
 		}
 		for(var i=0 ; i<n*n ; i++){
 			var x = (i%n-(n-1)/2)/n*2;
