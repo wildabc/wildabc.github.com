@@ -1,3 +1,4 @@
+<meta charset="UTF-8"/>
 <head>
 	<title>FLIP Demo</title>
 
@@ -847,15 +848,15 @@
 						frames = 0;
 
 						// fraction of liquid
-						//var n = self.grid.size;
-						//var pixels = new Uint8Array(4*n*n);
-						//var gl = self.gl;
-						//gl.readPixels(0, 0, n, n, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-						//var sum = 0;
-						//for (var i = 4*n*n-2 ; i >= 0; i -= 4) {
-						//	sum += pixels[i];
-						//}
-						//console.log("fraction of liquid:" + sum/n/n/255);
+						// var n = self.grid.size;
+						// var pixels = new Uint8Array(4*n*n);
+						// var gl = self.gl;
+						// gl.readPixels(0, 0, n, n, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+						// var sum = 0;
+						// for (var i = 4*n*n-2 ; i >= 0; i -= 4) {
+						// 	sum += pixels[i];
+						// }
+						// console.log("fraction of liquid:" + sum/n/n/255);
 					}
 				}
 				,1000*this.parameters.timestep);
@@ -894,6 +895,43 @@
 		}
 	}
 
+	function textPixels(text,x,y,n){
+		var c2d = document.createElement("canvas"); 
+		c2d.width = n; c2d.height = n;
+		var frag = document.createDocumentFragment();
+		var body = document.getElementsByTagName("body")[0];
+		body.appendChild(c2d);
+		var context2d = c2d.getContext("2d");
+
+		var lines = text.split("\n");
+		var maxwidth = 0;
+		context2d.font = "10px Arial";
+		for (var i = 0 ; i < lines.length; i++) {
+			var mwidth = context2d.measureText(lines[i]).width;
+			if(mwidth > maxwidth){
+				maxwidth = mwidth;
+			}
+		}
+		var fontsize = Math.floor(n/maxwidth)*10;
+
+		context2d.font = String(fontsize)+"px Arial";
+		context2d.textAlign = "center";
+		context2d.textBaseline = "bottom";
+		context2d.strokeStyle = "blue";
+		context2d.fillStyle = "blue";
+		// Y coordinate is flipped to consist with WebGL
+		context2d.translate(0,n-1);
+		context2d.scale(1,-1);
+		for (var i = 0 ; i < lines.length; i++) {
+			context2d.fillText(lines[i],x,y-(lines.length-1-i)*fontsize);
+		}
+
+		var textpixels = context2d.getImageData(0,0,n,n);
+		body.removeChild(c2d);
+
+		return textpixels;
+	}
+
 	var sim;
 	var initdata;
 	function main() {
@@ -908,7 +946,7 @@
 		mat.gravity = -0.1;
 		mat.viscosity = 0.1;	//viscosity-relative FLIP/PIC parameter, not viscosity itself
 		var para = new Object();
-		para.timestep = 1/60;
+		para.timestep = 1/20;
 		para.iterations = 3;
 		para.levels = 7;	//levels of multigrid
 		para.preiter = 6;	//pre-smoothing
@@ -919,6 +957,9 @@
 		var n = 512;
 		initdata = new Uint8Array(n*n);
 		var shape = window.location.search.substring(1);
+		if(shape == "text"){
+			var textpixels = textPixels("浣犲ソ\nHELLO",n/2,n*0.9,n);
+		}
 		for(var i=0 ; i<n*n ; i++){
 			var x = (i%n-(n-1)/2)/n*2;
 			var y = (Math.floor(i/n)-(n-1)/2)/n*2;
@@ -931,6 +972,10 @@
 					break;
 				case "still":	//still water
 					b = y<-0.5;
+					break;
+				case "text":	//still water
+					var j = i%n;
+					b = textpixels.data[4*i+2]>0 || y<-0.8;
 					break;
 				default:	//break square
 					b = x<0 && y<0;
