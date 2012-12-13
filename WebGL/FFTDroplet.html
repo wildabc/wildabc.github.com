@@ -455,11 +455,7 @@ function FluidSim(gl,width,height){
 		}
 	}
 
-	this.step = function(){
-		this.runProgram("fs-gravity");
-		this.setUniform1i("fs-advect","mode",1);
-		this.runProgram("fs-advect");
-
+	this.project = function(){
 		if(this.width == this.height){
 			this.setUniform1f("fs-fftv","sign",-1);
 			for(var i = 1 ; i <= this.ln2width; i++){
@@ -505,6 +501,17 @@ function FluidSim(gl,width,height){
 				this.runProgram("fs-fft");
 			}
 		}
+	}
+
+	this.step = function(){
+		this.runProgram("fs-gravity");
+
+		// this.project();	//one more projection, more accurate 
+
+		this.setUniform1i("fs-advect","mode",1);
+		this.runProgram("fs-advect");
+
+		this.project();
 
 		this.setUniform1i("fs-advect","mode",2);
 		this.runProgram("fs-advect");
