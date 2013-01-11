@@ -72,6 +72,48 @@
 	}
 	</script>
 
+	<script id="fs-MacCormack" type="x-shader/x-fragment"> 
+	#ifdef GL_ES
+	precision highp float;
+	#endif
+	uniform sampler2D samp, samphat, samphat1;
+	varying vec2 tc;
+	uniform float M,N; 
+	uniform int mode;
+	uniform float dt;
+	void main(void) {
+		vec2 v = texture2D(samp,tc).rg;
+		vec2 D = dt*vec2(v.r/M,v.g/N);
+		v = texture2D(samp,tc-D/2.).rg;
+		D = dt*vec2(v.r/M,v.g/N);
+		vec2 tc1 = tc - D;
+		vec2 tcf = vec2(floor(tc1.r*M)/M, floor(tc1.g*N)/N);
+		vec4 maxValue = (texture2D(samp, tcf));
+		vec4 minValue = maxValue;
+		float d1 = 1./M;
+		float d2 = 1./N;
+		maxValue = max(maxValue, texture2D(samp, tcf+vec2(d1,0.)));
+		maxValue = max(maxValue, texture2D(samp, tcf+vec2(0.,d2)));
+		maxValue = max(maxValue, texture2D(samp, tcf+vec2(d1,d2)));
+		minValue = min(minValue, texture2D(samp, tcf+vec2(d1,0.)));
+		minValue = min(minValue, texture2D(samp, tcf+vec2(0.,d2)));
+		minValue = min(minValue, texture2D(samp, tcf+vec2(d1,d2)));
+		vec4 newValue = texture2D(samphat1, tc)+(texture2D(samp, tc)-texture2D(samphat, tc))/2.;
+		newValue = clamp(newValue, minValue, maxValue);
+
+		gl_FragColor = texture2D(samp, tc);
+		if(mode == 0){
+			gl_FragColor.rgb = newValue.rgb;
+		}
+		else if(mode == 1){
+			gl_FragColor.rg = newValue.rg;
+		}
+		else if(mode == 2){
+			gl_FragColor.b = newValue.b;
+		}
+	}
+	</script>
+
 	<script id="fs-gravity" type="x-shader/x-fragment"> 
 	#ifdef GL_ES
 	precision highp float;
@@ -360,9 +402,13 @@ function FluidSim(gl,width,height){
 
 		this.textures[0] = createTexture(gl,this.width,this.height,null);
 		this.textures[1] = createTexture(gl,this.width,this.height,null);
+		this.textures[2] = createTexture(gl,this.width,this.height,null);
+		this.textures[3] = createTexture(gl,this.width,this.height,null);
 
 		bindFramebuffer(gl,this.textures[0]);
 		bindFramebuffer(gl,this.textures[1]);
+		bindFramebuffer(gl,this.textures[2]);
+		bindFramebuffer(gl,this.textures[3]);
 
 		var W_M = new Float32Array(3*this.width);
 		var W_N = new Float32Array(3*this.height);
@@ -389,8 +435,10 @@ function FluidSim(gl,width,height){
 	}
 
 	this.setTimeStep = function(timestep){
+		this.timestep = timestep;
 		this.setUniform1f("fs-gravity","dt",timestep);
 		this.setUniform1f("fs-advect","dt",timestep);
+		this.setUniform1f("fs-MacCormack","dt",timestep);
 		this.setUniform1f("fs-proj","dt",timestep);
 	}
 
@@ -503,18 +551,34 @@ function FluidSim(gl,width,height){
 		}
 	}
 
+	this.advectMacCormack = function(mode){
+		this.setUniform1i("fs-advect","mode",mode);
+		render(this.gl,this.programs["fs-advect"],this.textures[this.current],this.textures[2]);
+		this.setUniform1f("fs-advect","dt",-this.timestep);
+		render(this.gl,this.programs["fs-advect"],this.textures[2],this.textures[3]);
+		this.setUniform1f("fs-advect","dt",this.timestep);
+
+		this.setSampler("fs-MacCormack","samphat",this.textures[3]);
+		this.setSampler("fs-MacCormack","samphat1",this.textures[2]);
+		render(this.gl,this.programs["fs-MacCormack"],this.textures[this.current],this.textures[this.other]);
+		this.current = this.other;
+		this.other = (this.current+1)%2;
+	}
+
 	this.step = function(){
 		this.runProgram("fs-gravity");
 
 		// this.project();	//one more projection, more accurate 
 
-		this.setUniform1i("fs-advect","mode",1);
-		this.runProgram("fs-advect");
+		// this.setUniform1i("fs-advect","mode",1);
+		// this.runProgram("fs-advect");
+		this.advectMacCormack(1);
 
 		this.project();
 
 		this.setUniform1i("fs-advect","mode",2);
 		this.runProgram("fs-advect");
+		// this.advectMacCormack(2);
 
 		this.show("fs-show");
 	}
