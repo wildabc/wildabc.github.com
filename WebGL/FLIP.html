@@ -293,10 +293,11 @@
 			gl_FragColor = texture2D(samp,tc);
 			vec2 mtc = tc;	//modified texture coord, considering the boundary condition
 			if(gl_FragColor.b > 0.){
-				mtc.r += (fract(tc.r/2./h)>0.5 && texture2D(samp,vec2(tc.r+h,tc.g)).b==0.) ? 0.5*h : 0.;
-				mtc.r -= (fract(tc.r/2./h)<0.5 && texture2D(samp,vec2(tc.r-h,tc.g)).b==0.) ? 0.5*h : 0.;
-				mtc.g += (fract(tc.g/2./h)>0.5 && texture2D(samp,vec2(tc.r,tc.g+h)).b==0.) ? 0.5*h : 0.;
-				mtc.g -= (fract(tc.g/2./h)<0.5 && texture2D(samp,vec2(tc.r,tc.g-h)).b==0.) ? 0.5*h : 0.;
+				//add curly brackets for ANGLE bug. See https://code.google.com/p/angleproject/issues/detail?id=394
+				{mtc.r += (fract(tc.r/2./h)>0.5 && texture2D(samp,vec2(tc.r+h,tc.g)).b==0.) ? 0.5*h : 0.;}
+				{mtc.r -= (fract(tc.r/2./h)<0.5 && texture2D(samp,vec2(tc.r-h,tc.g)).b==0.) ? 0.5*h : 0.;}
+				{mtc.g += (fract(tc.g/2./h)>0.5 && texture2D(samp,vec2(tc.r,tc.g+h)).b==0.) ? 0.5*h : 0.;}
+				{mtc.g -= (fract(tc.g/2./h)<0.5 && texture2D(samp,vec2(tc.r,tc.g-h)).b==0.) ? 0.5*h : 0.;}
 				gl_FragColor.g += texture2D(csamp,mtc).g*4.;
 			}
 		}
