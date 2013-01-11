@@ -100,6 +100,7 @@
 		minValue = min(minValue, texture2D(samp, tcf+vec2(d1,d2)));
 		vec4 newValue = texture2D(samphat1, tc)+(texture2D(samp, tc)-texture2D(samphat, tc))/2.;
 		newValue = clamp(newValue, minValue, maxValue);
+		// vec4 newValue = texture2D(samp, tc1);	//only Semi-Lagrangian, for comparison
 
 		gl_FragColor = texture2D(samp, tc);
 		if(mode == 0){
@@ -558,6 +559,7 @@ function FluidSim(gl,width,height){
 		render(this.gl,this.programs["fs-advect"],this.textures[2],this.textures[3]);
 		this.setUniform1f("fs-advect","dt",this.timestep);
 
+		this.setUniform1i("fs-MacCormack","mode",mode);
 		this.setSampler("fs-MacCormack","samphat",this.textures[3]);
 		this.setSampler("fs-MacCormack","samphat1",this.textures[2]);
 		render(this.gl,this.programs["fs-MacCormack"],this.textures[this.current],this.textures[this.other]);
@@ -576,9 +578,9 @@ function FluidSim(gl,width,height){
 
 		this.project();
 
-		this.setUniform1i("fs-advect","mode",2);
-		this.runProgram("fs-advect");
-		// this.advectMacCormack(2);
+		// this.setUniform1i("fs-advect","mode",2);
+		// this.runProgram("fs-advect");
+		this.advectMacCormack(2);
 
 		this.show("fs-show");
 	}
