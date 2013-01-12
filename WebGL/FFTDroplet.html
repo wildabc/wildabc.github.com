@@ -627,9 +627,12 @@ function main() {
 	sim = new FluidSim(gl);
 
 	var pixels = [], T;
+	var minD = Math.min(M,N);
+	var centerX = M/minD;
+	var centerY = N/minD;
 	for(var i = 0; i<N; i++){
 		for(var j = 0; j<M; j++){
-			var x = 2/M*j-1,  y = 2/N*i-1 - .75;
+			var x = 2/minD*(j+0.5)-centerX,  y = 2/minD*(i+0.5)-centerY - .75;
 			if (x*x + y*y > .05) T = 0; else T= 1;
 			pixels.push( 0, 0, T );
 		}
