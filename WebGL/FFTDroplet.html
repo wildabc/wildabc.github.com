@@ -262,7 +262,7 @@
 		vec2 t3 =  texture2D(samp, vec2(idx.r+1./psize,idx.g+1./psize)).rg;
 		gl_FragColor.rg = t0+complexProd(WM(u.r),t1)+complexProd(WM(u.g),t2)+complexProd(WM(u.r+u.g),t3);
 		// if(sign == 1. && iter == 1.){
-			// 	gl_FragColor.rg = gl_FragColor.rg/M;
+			// 	gl_FragColor.rg = gl_FragColor.rg/M/M;
 			// }
 
 		gl_FragColor.ba = texture2D(samp, tc).ba;
