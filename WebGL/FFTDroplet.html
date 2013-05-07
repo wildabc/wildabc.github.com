@@ -372,9 +372,9 @@ function FluidSim(gl,width,height){
 	this.width = gl.canvas.width;
 	this.height = gl.canvas.height;
 
-	this.ln2width = Math.log(this.width)/Math.LN2;
-	this.ln2height = Math.log(this.height)/Math.LN2;
-	if(Math.floor(this.ln2width) != this.ln2width || Math.floor(this.ln2height) != this.ln2height){
+	this.log2width = Math.log(this.width)/Math.LN2;
+	this.log2height = Math.log(this.height)/Math.LN2;
+	if(Math.floor(this.log2width) != this.log2width || Math.floor(this.log2height) != this.log2height){
 		return false;
 	}
 
@@ -507,7 +507,7 @@ function FluidSim(gl,width,height){
 	this.project = function(){
 		if(this.width == this.height){
 			this.setUniform1f("fs-fftv","sign",-1);
-			for(var i = 1 ; i <= this.ln2width; i++){
+			for(var i = 1 ; i <= this.log2width; i++){
 				this.setUniform1f("fs-fftv","iter",i);
 				this.runProgram("fs-fftv");
 			}
@@ -515,13 +515,13 @@ function FluidSim(gl,width,height){
 		else{
 			this.setUniform1f("fs-fft","sign",-1);
 			this.setUniform1f("fs-fft","dim",0);
-			for(var i = 1 ; i <= this.ln2width; i++){
+			for(var i = 1 ; i <= this.log2width; i++){
 				this.setUniform1f("fs-fft","iter",i);
 				this.runProgram("fs-fft");
 			}
 
 			this.setUniform1f("fs-fft","dim",1);
-			for(var i = 1 ; i <= this.ln2height ; i++){
+			for(var i = 1 ; i <= this.log2height ; i++){
 				this.setUniform1f("fs-fft","iter",i);
 				this.runProgram("fs-fft");
 			}
@@ -531,7 +531,7 @@ function FluidSim(gl,width,height){
 
 		if(this.width == this.height){
 			this.setUniform1f("fs-fftv","sign",1);
-			for(var i = 1 ; i <= this.ln2width; i++){
+			for(var i = 1 ; i <= this.log2width; i++){
 				this.setUniform1f("fs-fftv","iter",i);
 				this.runProgram("fs-fftv");
 			}
@@ -539,13 +539,13 @@ function FluidSim(gl,width,height){
 		else{
 			this.setUniform1f("fs-fft","sign",1);
 			this.setUniform1f("fs-fft","dim",0);
-			for(var i = 1 ; i <= this.ln2width ; i++){
+			for(var i = 1 ; i <= this.log2width ; i++){
 				this.setUniform1f("fs-fft","iter",i);
 				this.runProgram("fs-fft");
 			}
 
 			this.setUniform1f("fs-fft","dim",1);
-			for(var i = 1 ; i <= this.ln2height ; i++){
+			for(var i = 1 ; i <= this.log2height ; i++){
 				this.setUniform1f("fs-fft","iter",i);
 				this.runProgram("fs-fft");
 			}
