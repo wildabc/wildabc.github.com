@@ -945,6 +945,7 @@
 		var gl = c.getContext("experimental-webgl");
 		if ( !gl ) alert("Can't get WebGL"); 
 		gl.getExtension("OES_texture_float");
+		gl.getExtension("OES_texture_float_linear");
 
 		var mat = new Object();
 		mat.gravity = -0.1;
