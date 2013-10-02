@@ -628,6 +628,7 @@ function main() {
 	var gl = c.getContext("experimental-webgl");
 	if ( !gl ) alert("Can't get WebGL"); 
 	gl.getExtension("OES_texture_float");
+	gl.getExtension("OES_texture_float_linear");
 
 	var M = c.width , N = c.height;
 	sim = new FluidSim(gl);
