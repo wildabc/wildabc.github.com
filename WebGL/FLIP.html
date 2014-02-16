@@ -434,9 +434,11 @@
 		}
 		if(!tgt){
 			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+			l.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
 		}
 		else{
 			gl.bindFramebuffer(gl.FRAMEBUFFER, tgt.fb);
+			gl.viewport(0, 0, tgt.width, tgt.height);
 		}
 		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 		gl.flush();
@@ -1002,7 +1004,7 @@
 		console.log("Time of initialization: "+(Date.now()-t0)/1000+"s");
 	}
 
-</script> 
+	</script> 
 </head>
 
 <body onload="main();">
