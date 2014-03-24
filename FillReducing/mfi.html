@@ -155,25 +155,25 @@ function order(grid, x0, y0, x1, y1, last){
 	}
 	
 	var lb, rb, db, ub;
-	if(x0 == 0 || grid[x0-1][y0] == 0) {
+	if(x0 == 0 || isNaN(grid[x0-1][y0]) ) {
 		lb = 0;
 	}
 	else{
 		lb = 1 ;
 	}
-	if(x1 == grid.length-1 || grid[x1+1][y1] == 0) {
+	if(x1 == grid.length-1 || isNaN(grid[x1+1][y1]) ) {
 		rb = 0;
 	}
 	else{
 		rb = 1 ;
 	}
-	if(y0 == 0 || grid[x0][y0-1] == 0) {
+	if(y0 == 0 || isNaN(grid[x0][y0-1]) ) {
 		db = 0;
 	}
 	else{
 		db = 1 ;
 	}
-	if(y1 == grid[0].length-1 || grid[x1][y1+1] == 0) {
+	if(y1 == grid[0].length-1 || isNaN(grid[x1][y1+1]) ) {
 		ub = 0;
 	}
 	else{
@@ -234,7 +234,7 @@ function orderGrid(w, h){
 	for (var i = 0; i < w; i++) {
 		grid[i] = new Array(h);
 		for (var j = 0; j < h; j++) {
-			grid[i][j] = 0;
+			grid[i][j] = NaN;
 		}
 	}
 	
@@ -274,21 +274,7 @@ function displayMatrix(m) {
 		    if(r == 0 && g <0.5){
 			    td.style.color = "white";
 		    }
-			table.appendChild(td);
-		}
-	}
-}
-
-function show(w, h){
-	var table = document.getElementById("order");
-	table.innerHTML = "";
-	for (var j = 0; j < h; j++) {
-		var tr = document.createElement("tr");
-		table.appendChild(tr);
-		for (var i = 0; i < w; i++) {
-			var td = document.createElement("td");
-			td.innerHTML = mnz(i+1, j+1, 0, 0);
-			table.appendChild(td);
+			tr.appendChild(td);
 		}
 	}
 }
@@ -307,7 +293,7 @@ function update(){
 
 </script>
 </head>
-<body>
+<body onload="check_known_mnz(512,512);">
 width: <input type="number" style="width:40px;" min="1" onchange="update();" id="width">
 height:<input type="number" style="width:40px;" min="1" onchange="update();" id="height">
 <p id="result"></p>
