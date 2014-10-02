@@ -1,0 +1,99 @@
+h1, h2, h6 {
+	text-align: center;
+}
+
+h5 {
+	text-align: right;
+}
+
+h5, h6 {
+	font-size: 100%;
+	font-weight: normal;
+	margin: 0;
+}
+
+.withPN{
+	padding-right: 2em;
+	padding-left: 2em;
+}
+
+.pagenum {
+	display: none;
+}
+
+.withPN .pagenum {
+	position: absolute;
+	right: 0%;
+	width: 1.5em;
+	font-size: 0.8em;
+	color: green;
+	font-family: Arial;
+	padding-top: 0.2em;
+	text-indent: 0em;
+	display: inline;
+}
+
+p {
+	text-indent: 1.25em;
+	text-align: justify;
+}
+
+p.noindent {
+	text-indent: 0em;
+}
+
+p .initcap {
+	float: left;
+	font-size: 4em;
+	line-height: 0.8em;
+}
+
+ul {
+	list-style: none;
+	padding: 0px;
+	margin-left: auto;
+	margin-right: auto;
+	width: 536px;
+}
+
+.center {
+	text-align: center;
+}
+
+.center p {
+	text-indent: 0em;
+	text-align: center;
+}
+
+.right {
+	text-align: right;
+}
+
+.smaller {
+	font-size: 80%;
+}
+
+.larger {
+	font-size: 150%;
+}
+
+.figure {
+	text-align: center;
+}
+
+img {
+	width: 64%;
+}
+
+#FHR img {
+	height: 6.2em;
+	width: auto;
+}
+
+#Cover img, #Frontispiece img, #Pic05 img, #Pic08 img {
+	width: 48%
+}
+
+.hidden {
+	display: none;
+}

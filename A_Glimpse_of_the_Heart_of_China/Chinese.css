@@ -1,0 +1,125 @@
+﻿h1, h2, h6 {
+	text-align: center;
+}
+
+h5 {
+	text-align: right;
+}
+
+h1, h2 {
+	font-family: SIMHEI;
+}
+
+h5, h6 {
+	font-size: 100%;
+	font-weight: normal;
+	margin: 0;
+}
+
+.withPN {
+	padding-right: 2em;
+	padding-left: 2em;
+}
+
+.pagenum {
+	display: none;
+}
+
+.withPN .pagenum {
+	position: absolute;
+	right: 0%;
+	width: 1.5em;
+	font-size: 0.8em;
+	color: green;
+	font-family: Arial;
+	padding-top: 0.2em;
+	text-indent: 0em;
+	display: inline;
+}
+
+p {
+	text-indent: 2em;
+	text-align: justify;
+}
+
+p.noindent {
+	text-indent: 0em;
+}
+
+.footnotes p, .references p {
+	text-indent: 0em;
+}
+
+.supplement p {
+	text-indent: -1.5em;
+	padding-left: 1.5em;
+}
+
+ul {
+	list-style: none;
+	font-family: 楷体_GB2312;
+	padding: 0px;
+	margin-left: auto;
+	margin-right: auto;
+	width: 384px;
+}
+
+table {
+	width: 100%;
+}
+
+td {
+	vertical-align: top;
+	width: 50%;
+}
+
+div.footnotes, sup, div.figure {
+	/*display: none;*/
+}
+
+.center {
+	text-align: center;
+}
+
+.center p, .figure p{
+	text-indent: 0em;
+	text-align: center;
+}
+
+.right {
+	text-align: right;
+}
+
+.smaller {
+	font-size: 80%;
+}
+
+.larger {
+	font-size: 150%;
+}
+
+.figure {
+	text-align: center;
+	font-family: 楷体_GB2312;
+}
+
+img {
+	width: 64%;
+}
+
+#Cover img, #Frontispiece img, #Pic05 img, #Pic08 img {
+	width: 48%
+}
+
+#Author img {
+	width: 32%
+}
+
+#FHR img {
+	height: 6.2em;
+	width: auto;
+}
+
+.hidden {
+	display: none;
+}
