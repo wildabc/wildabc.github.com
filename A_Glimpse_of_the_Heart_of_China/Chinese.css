@@ -1,4 +1,9 @@
-﻿h1, h2, h6 {
+﻿body {
+	margin-left: 10%;
+	margin-right: 10%;
+}
+
+h1, h2, h6 {
 	text-align: center;
 }
 
@@ -16,9 +21,13 @@ h5, h6 {
 	margin: 0;
 }
 
-.withPN {
-	padding-right: 2em;
-	padding-left: 2em;
+hr {
+	border-color: black;
+	border-width: 0px;
+	border-top-width: 1px;
+	width: 80%;
+	margin-top: 2em;
+	margin-bottom: 2em;
 }
 
 .pagenum {
@@ -27,7 +36,7 @@ h5, h6 {
 
 .withPN .pagenum {
 	position: absolute;
-	right: 0%;
+	left: 91%;
 	width: 1.5em;
 	font-size: 0.8em;
 	color: green;
@@ -104,15 +113,15 @@ div.footnotes, sup, div.figure {
 }
 
 img {
-	width: 64%;
+	width: 80%;
 }
 
 #Cover img, #Frontispiece img, #Pic05 img, #Pic08 img {
-	width: 48%
+	width: 60%;
 }
 
 #Author img {
-	width: 32%
+	width: 40%;
 }
 
 #FHR img {
