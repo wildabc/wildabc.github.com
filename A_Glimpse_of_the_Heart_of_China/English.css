@@ -69,7 +69,7 @@ ul {
 	text-align: center;
 }
 
-.center p {
+.center p, .figure p {
 	text-indent: 0em;
 	text-align: center;
 }
@@ -88,6 +88,7 @@ ul {
 
 .figure {
 	text-align: center;
+	font-size: 90%;
 }
 
 img {
@@ -99,8 +100,8 @@ img {
 	width: auto;
 }
 
-#Cover img, #Frontispiece img, #Pic05 img, #Pic08 img {
-	width: 60%;
+img[src="images/Cover.jpg"], img[src="images/Frontispiece.jpg"], img[src="images/Pic05.jpg"], img[src="images/Pic08.jpg"] {
+	width: 55%;
 }
 
 .hidden {

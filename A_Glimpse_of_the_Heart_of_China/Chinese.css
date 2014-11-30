@@ -3,11 +3,11 @@
 	margin-right: 10%;
 }
 
-h1, h2, h6 {
+h1, h2, h5 {
 	text-align: center;
 }
 
-h5 {
+h4 {
 	text-align: right;
 }
 
@@ -15,7 +15,7 @@ h1, h2 {
 	font-family: SIMHEI;
 }
 
-h5, h6 {
+h4, h5, h6 {
 	font-size: 100%;
 	font-weight: normal;
 	margin: 0;
@@ -66,20 +66,14 @@ p.noindent {
 
 ul {
 	list-style: none;
-	font-family: 楷体_GB2312;
 	padding: 0px;
 	margin-left: auto;
 	margin-right: auto;
 	width: 384px;
 }
 
-table {
-	width: 100%;
-}
-
-td {
-	vertical-align: top;
-	width: 50%;
+pre {
+	margin-left: 60px;
 }
 
 div.footnotes, sup, div.figure {
@@ -109,24 +103,19 @@ div.footnotes, sup, div.figure {
 
 .figure {
 	text-align: center;
-	font-family: 楷体_GB2312;
+	font-size: 90%;
 }
 
 img {
 	width: 80%;
 }
 
-#Cover img, #Frontispiece img, #Pic05 img, #Pic08 img {
-	width: 60%;
+img[src="images/Cover.jpg"], img[src="images/Frontispiece.jpg"], img[src="images/Pic05.jpg"], img[src="images/Pic08.jpg"] {
+	width: 55%;
 }
 
-#Author img {
+img[src="images/Perkins.jpg"] {
 	width: 40%;
-}
-
-#FHR img {
-	height: 6.2em;
-	width: auto;
 }
 
 .hidden {
