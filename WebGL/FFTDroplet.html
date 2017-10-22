@@ -324,8 +324,8 @@ function createTexture(gl,width,height,pixels){
 	gl.activeTexture(gl.TEXTURE0+id);
 	gl.bindTexture(gl.TEXTURE_2D, texture);
 	//gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, width, height, 0,
-		gl.RGB, gl.FLOAT, pixels);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0,
+		gl.RGBA, gl.FLOAT, pixels);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
@@ -417,18 +417,18 @@ function FluidSim(gl,width,height){
 		bindFramebuffer(gl,this.textures[2]);
 		bindFramebuffer(gl,this.textures[3]);
 
-		var W_M = new Float32Array(3*this.width);
-		var W_N = new Float32Array(3*this.height);
+		var W_M = new Float32Array(4*this.width);
+		var W_N = new Float32Array(4*this.height);
 		var pi2 = 2*Math.PI;
 		var a = pi2/this.width;
 		for(var i = 0 ; i < this.width ; i++){
-			W_M[3*i] = Math.cos(a*i);			
-			W_M[3*i+1] = Math.sin(a*i);
+			W_M[4*i] = Math.cos(a*i);			
+			W_M[4*i+1] = Math.sin(a*i);
 		}
 		a = pi2/this.height;
 		for(var i = 0 ; i < this.height ; i++){
-			W_N[3*i] = Math.cos(a*i);			
-			W_N[3*i+1] = Math.sin(a*i);
+			W_N[4*i] = Math.cos(a*i);			
+			W_N[4*i+1] = Math.sin(a*i);
 		}
 		var textureW_M = createTexture(gl,this.width,1,W_M);
 		var textureW_N = createTexture(gl,this.height,1,W_N);
@@ -462,8 +462,8 @@ function FluidSim(gl,width,height){
 
 		gl.activeTexture(gl.TEXTURE0+this.current);
 		gl.bindTexture(gl.TEXTURE_2D, this.textures[this.current]);
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, this.width, this.height, 0,
-			gl.RGB, gl.FLOAT, data);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.width, this.height, 0,
+			gl.RGBA, gl.FLOAT, data);
 	}
 
 	this.loadPrograms = function(){
@@ -641,11 +641,11 @@ function main() {
 		for(var j = 0; j<M; j++){
 			var x = 2/minD*(j+0.5)-centerX,  y = 2/minD*(i+0.5)-centerY - .75;
 			if (x*x + y*y > .05) T = 0; else T= 1;
-			pixels.push( 0, 0, T );
+			pixels.push( 0, 0, T, 0 );
 		}
 	}
 
-	initdata = new Float32Array(M*N*3);
+	initdata = new Float32Array(M*N*4);
 	initdata.set(pixels);
 	sim.setData(initdata);
 
