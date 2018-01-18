@@ -1,0 +1,388 @@
+<meta charset="UTF-8">
+<style type="text/css">
+	#container {
+		position: absolute;
+		left: 50%;
+		top: 2%;
+		margin-left: -48%;
+		width: 96%;
+		height: 96%;
+		border: 1px solid black;
+		overflow: hidden;
+	}
+
+	#adjustments {
+		position: absolute;
+		top: 95%;
+		width: 100%;
+		height: 5%;
+		z-index: 5;
+	}
+	
+	#display {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+	}
+
+	#tip {
+		position: absolute;
+		top: 45%;
+		text-align: center;
+		width: 100%;
+		font: 2em arial;
+	}
+
+	.autohide {
+		opacity: 0.2;
+		text-align: center;
+		background-color: white;
+	}
+	
+	.autohide:hover {
+		opacity: 0.8;
+	}
+	
+	.autohide input[type=range] {
+		position: relative;
+		top: 5;
+		width: 80;
+		color: yellow;
+	}
+</style>
+
+<script id="worker" type="javascript/worker">
+	function ImageProcessor(image) {
+		this.rawImage = image;
+		this.width = image.width;
+		this.height = image.height;
+		this.data = new Uint8ClampedArray(this.width*this.height);
+		var colordata = image.data;
+		for (var i=0; i<colordata.length; i+=4) {
+			var v = (colordata[i]+colordata[i+1]+colordata[i+2])/3;
+			this.data[i/4] = v;
+		}
+	}
+
+	ImageProcessor.prototype.toColorImage = function () {
+		var image = new ImageData(this.width, this.height);
+		for (var i=0; i<image.data.length; i+=4) {
+			var v = this.data[i/4];
+			image.data[i] = image.data[i+1] = image.data[i+2] = v;
+			image.data[i+3] = 255;
+		}
+		return image;
+	}
+
+
+	ImageProcessor.prototype.calcLocalStats =  function (r) {
+		var data = this.data;
+		var width = this.width;
+		var height = this.height;
+		
+		var square = new Uint16Array(data.length);
+		for (var i=0; i<data.length; i++) {
+			var x = data[i]
+			square[i] = x*x;
+		}
+
+		var lineSum = new Float64Array(data.length);
+		var lineSum2 = new Float64Array(data.length);
+		for (var y=0; y<height; y++) {
+			var b, c, f; //back, center, front
+			b = c = f = y*width
+			var begin = y*width+r;
+			var end = (y+1)*width;
+			var sum = 0;
+			var sum2 = 0;
+			
+			while (f<=begin) {
+				sum += data[f];
+				sum2 += square[f];
+				f++;
+			}
+			lineSum[c] = sum;
+			lineSum2[c] = sum2;
+			c++;
+			
+			while (c<=begin) {
+				sum += data[f];
+				lineSum[c] = sum;
+				sum2 += square[f];
+				lineSum2[c] = sum2;
+				f++;
+				c++;
+			}
+
+			while (f<end) {
+				sum += data[f];
+				sum -= data[b];
+				lineSum[c] = sum;
+				sum2 += square[f];
+				sum2 -= square[b];
+				lineSum2[c] = sum2;
+				f++;
+				c++;
+				b++;
+			}
+
+			while (c<end) {
+				sum -= data[b];
+				lineSum[c] = sum;
+				sum2 -= square[b];
+				lineSum2[c] = sum2;
+				c++;
+				b++;
+			}
+		}
+
+		var sw = new Float64Array(data.length);
+		var sw2 = new Float64Array(data.length);
+		for (var x=0; x<width; x++) {
+			var b, c, f; //back, center, front
+			b = c = f = x; 
+			var begin = r*width+x;
+			var end = data.length;
+			var sum = 0;
+			var sum2 = 0;
+			
+			while (f<=begin) {
+				sum += lineSum[f];
+				sum2 += lineSum2[f];
+				f += width;
+			}
+			sw[c] = sum;
+			sw2[c] = sum2;
+			c += width;
+
+			while (c<=begin) {
+				sum += lineSum[f];
+				sum2 += lineSum2[f];
+				sw[c] = sum;
+				sw2[c] = sum2;
+				c += width;
+				f += width;
+			}
+
+			while (f<end) {
+				sum += lineSum[f];
+				sum -= lineSum[b];
+				sw[c] = sum;
+				sum2 += lineSum2[f];
+				sum2 -= lineSum2[b];
+				sw2[c] = sum2;
+				c += width;
+				f += width;
+				b += width;
+			}
+
+			while (c<end) {
+				sum -= lineSum[b];
+				sw[c] = sum;
+				sum2 -= lineSum2[b];
+				sw2[c] = sum2;
+				c += width;
+				b += width;
+			}
+		}
+
+		var mean = new Float64Array(data.length);
+		var stdvar = new Float64Array(data.length);
+		for (var y=0; y<height; y++) {
+			var x0 = y*width;
+			var h = 2*r+1;
+			if (y<r) {
+				h = y+1+r;
+			}
+			else if (y>height-r) {
+				h = height-y+r;
+			}
+			var area = (1+r)*h;
+			
+			for (var x=0; x<width; x++) {
+				var i = x0+x;
+				var sum = sw[i];
+				mean[i] = sum/area;
+				stdvar[i] = Math.sqrt((sw2[i]- (sum*sum)/area)/area);
+				
+				if (x<r) {
+					area += h;
+				}
+				else if (x>=width-r) {
+					area -= h;
+				}
+			}
+		}
+
+		this.localStats =  {"m":mean, "s":stdvar};
+
+		//self.postMessage(this.data2image(stdvar));
+	}
+
+	ImageProcessor.prototype.data2image =  function (data) {
+		var res = findMaxMin(data);
+		var max = res[0];
+		var min = res[1];
+		var s = 255/(max-min);
+		
+		var image = new ImageData(this.width, this.height);
+		for (var i=0; i<image.data.length; i+=4) {
+			var v = (data[i/4]-min)*s;
+			image.data[i] = image.data[i+1] = image.data[i+2] = v;
+			image.data[i+3] = 255;
+		}
+		return image;
+	}
+
+	ImageProcessor.prototype.calcRelativeDeviation =  function () {
+		var relativeDev = new Float64Array(this.data.length);
+		var m = this.localStats.m;
+		var s = this.localStats.s;
+		var data = this.data;
+		var min_v = findMaxMin(data)[1];
+		var max_s = findMaxMin(s)[0];
+
+		for (var i=0; i<relativeDev.length; i++) {
+			var c = (1-s[i]/max_s)*(m[i]-min_v);
+			relativeDev[i] = (m[i]-data[i])/c;
+		}
+		this.relativeDev = relativeDev;
+	}
+
+	ImageProcessor.prototype.binaryImage =  function (k) {
+		var relativeDev = this.relativeDev;
+		var b = new Uint8ClampedArray(relativeDev.length);
+		for (var i=0; i<relativeDev.length; i++) {
+			b[i] = relativeDev[i]>k ? 0 : 1;
+		}
+		return this.data2image(b);
+	}
+
+	function findMaxMin (data) {
+		var min = 1e30;
+		var max = -1e30;
+		for (var i=0; i<data.length; i++) {
+			var v = data[i];
+			if (v<min) min = v;
+			if (v>max) max = v;
+		}
+		return [max, min];
+	}
+
+	self.onmessage = function(e) {
+		var pixels = e.data.pixels;
+		if (pixels !== undefined) {
+			im = new ImageProcessor(pixels);
+			//var t0 = Date.now();
+			im.calcLocalStats(20);
+			im.calcRelativeDeviation();
+			//console.log(Date.now()-t0);
+		}
+		
+		var bin = im.binaryImage(e.data.k);
+		self.postMessage(bin);
+	}
+</script>
+
+<script>
+	function upload(file) {
+		if (file === undefined) return;
+		
+		var image = new Image();
+		var reader = new FileReader();
+		reader.readAsDataURL(file);
+		
+		reader.onload = function (e) {
+			image.src = e.target.result;
+		}
+		
+		image.onload = function() {
+			var canvas = document.getElementById("display");
+			canvas.style.left = "0px";
+			canvas.style.top = "0px";
+			canvas.width = this.width;
+			canvas.height = this.height;
+			var rw = canvas.parentElement.clientWidth/canvas.width;
+			var rh = canvas.parentElement.clientHeight/canvas.height;
+			var s = rw<rh ? rw :rh;
+			canvas.scale = s;
+			canvas.style.width = s*canvas.width + "px";
+			canvas.style.height = s*canvas.height + "px";
+			canvas.style.left = canvas.parentElement.clientWidth/2 + "px";
+			canvas.style.top = canvas.parentElement.clientHeight/2 + "px";;
+			canvas.style["margin-left"] = -s*canvas.width/2 + "px";
+			canvas.style["margin-top"] = -s*canvas.height/2 + "px";
+
+			var c = canvas.getContext('2d');
+			c.drawImage(image, 0, 0);
+
+			var m = {};
+			m.pixels = c.getImageData(0, 0, canvas.width, canvas.height);
+			m.k = document.getElementById("slider").valueAsNumber;
+			worker.postMessage(m);
+		}
+	}
+
+	function changeValue() {
+		var k = document.getElementById("slider").valueAsNumber;
+		worker.postMessage({'k': k});
+		document.getElementById("sliderValue").innerHTML = "k="+k;
+	}
+
+	function preventDefault(e) {
+		e.stopPropagation();
+		e.preventDefault();
+	}
+
+	window.onload = function () {
+		var div = document.getElementById("container");
+		div.ondragover = preventDefault;
+		div.ondragleave = preventDefault;
+		div.ondragenter = preventDefault;
+		
+		div.ondrop = function (e) {
+			e.preventDefault();
+			upload(e.dataTransfer.files[0]);
+			this.classList.remove("dragover");
+		};
+
+		div.onmousewheel = function (e) {
+			var canvas = document.getElementById("display");
+			canvas.scale += e.wheelDelta*0.001;
+			canvas.style.width = canvas.scale*canvas.width + "px";
+			canvas.style.height = canvas.scale*canvas.height + "px";
+			canvas.style["margin-left"] = -canvas.scale*canvas.width/2 + "px";
+			canvas.style["margin-top"] = -canvas.scale*canvas.height/2 + "px";
+		}
+
+		var blob = new Blob([document.getElementById("worker").textContent], {type: "text/javascript"});
+		worker = new Worker(URL.createObjectURL(blob));
+		//worker = new Worker("worker.js");
+		worker.onmessage = function(e) {
+			var canvas = document.getElementById("display");
+			var c = canvas.getContext('2d');
+			c.putImageData(e.data, 0, 0);
+		};
+
+		document.addEventListener("drag", function(e) {
+			e.target.style.left = (e.target.clientLeft+e.x-e.target.x0)+"px";
+			e.target.style.top = (e.target.clientTop+e.y-e.target.y0)+"px";
+		}, false);
+		document.addEventListener("dragstart", function(e) {
+			var left = parseInt(e.target.style.left);
+			var top = parseInt(e.target.style.top);
+			if (isNaN(left)) left = 0;
+			if (isNaN(top)) top = 0;
+			e.target.x0 = e.x-left;
+			e.target.y0 = e.y-top;
+		}, false);
+	}
+</script>
+
+<div id="container">
+	<p id="tip">Drop an image to binarize.</p>
+	<canvas id="display" draggable="true"> </canvas>
+	<div id="adjustments" class="autohide">
+		<span id="sliderValue">k=0.2</span>&nbsp;<input type="range" id="slider" onchange="changeValue()" min="0" max="0.5" step="0.01" value="0.2"/>
+	</div>
+</div>
