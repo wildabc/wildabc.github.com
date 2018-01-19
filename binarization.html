@@ -334,6 +334,32 @@
 		e.preventDefault();
 	}
 
+	function dragstart(e) {
+		preventDefault(e);
+		
+		var canvas = document.getElementById("display");
+		var left = parseInt(canvas.style.left);
+		var top = parseInt(canvas.style.top);
+		if (isNaN(left)) left = 0;
+		if (isNaN(top)) top = 0;
+		canvas.x0 = e.screenX-left;
+		canvas.y0 = e.screenY-top;
+
+		document.addEventListener("mousemove", move, true);
+		document.addEventListener("mouseup", dragend, true);
+	}
+
+	function dragend(e) {
+		document.removeEventListener("mousemove", move, true);
+		document.removeEventListener("mouseup", dragend, true);
+	}
+
+	function move(e) {
+		var canvas = document.getElementById("display");
+		canvas.style.left = (canvas.clientLeft+e.screenX-canvas.x0)+"px";
+		canvas.style.top = (canvas.clientTop+e.screenY-canvas.y0)+"px";
+	}
+
 	window.onload = function () {
 		var div = document.getElementById("container");
 		div.ondragover = preventDefault;
@@ -346,9 +372,9 @@
 			this.classList.remove("dragover");
 		};
 
-		div.onmousewheel = function (e) {
+		div.onwheel = function (e) {
 			var canvas = document.getElementById("display");
-			canvas.scale += e.wheelDelta*0.001;
+			canvas.scale += e.deltaY*0.001*(e.deltaMode==1 ? 32 : 1);
 			canvas.style.width = canvas.scale*canvas.width + "px";
 			canvas.style.height = canvas.scale*canvas.height + "px";
 			canvas.style["margin-left"] = -canvas.scale*canvas.width/2 + "px";
@@ -363,25 +389,12 @@
 			var c = canvas.getContext('2d');
 			c.putImageData(e.data, 0, 0);
 		};
-
-		document.addEventListener("drag", function(e) {
-			e.target.style.left = (e.target.clientLeft+e.x-e.target.x0)+"px";
-			e.target.style.top = (e.target.clientTop+e.y-e.target.y0)+"px";
-		}, false);
-		document.addEventListener("dragstart", function(e) {
-			var left = parseInt(e.target.style.left);
-			var top = parseInt(e.target.style.top);
-			if (isNaN(left)) left = 0;
-			if (isNaN(top)) top = 0;
-			e.target.x0 = e.x-left;
-			e.target.y0 = e.y-top;
-		}, false);
 	}
 </script>
 
 <div id="container">
 	<p id="tip">Drop an image to binarize.</p>
-	<canvas id="display" draggable="true"> </canvas>
+	<canvas id="display" onmousedown="dragstart(event)"> </canvas>
 	<div id="adjustments" class="autohide">
 		<span id="sliderValue">k=0.2</span>&nbsp;<input type="range" id="slider" onchange="changeValue()" min="0" max="0.5" step="0.01" value="0.2"/>
 	</div>
