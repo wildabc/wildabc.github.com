@@ -434,7 +434,7 @@
 		}
 		if(!tgt){
 			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-			l.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+			gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
 		}
 		else{
 			gl.bindFramebuffer(gl.FRAMEBUFFER, tgt.fb);
