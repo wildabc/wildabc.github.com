@@ -161,10 +161,12 @@
 		l = l<=.5 ? l : l-1.;
 
 		float r = k*k+l*l;
-		vec2 v1 = vec2(k,l);
-		sym -= dot(v1,sym)*v1/r;
-		vec2 v2 = vec2(-l,k);
-		asym -= dot(v2,asym)*v2/r;
+		if (r!=0.) {
+			vec2 v1 = vec2(k,l);
+			sym -= dot(v1,sym)*v1/r;
+			vec2 v2 = vec2(-l,k);
+			asym -= dot(v2,asym)*v2/r;
+		}
 		gl_FragColor = texture2D(samp, tc);
 		gl_FragColor.rg = (sym+asym)/M/N; //with fft normalization
 		gl_FragColor.rg *= exp(-r*dt*visc); //apply viscosity
