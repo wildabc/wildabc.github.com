@@ -8,6 +8,7 @@ h1, h2, h5 {
 }
 
 .author {
+	text-indent: 0em;
 	text-align: center;
 	font-size: x-large;
 	font-weight: bold;
