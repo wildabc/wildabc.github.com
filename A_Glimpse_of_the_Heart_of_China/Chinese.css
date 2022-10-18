@@ -7,12 +7,19 @@ h1, h2, h5 {
 	text-align: center;
 }
 
+.author {
+	text-align: center;
+	font-size: x-large;
+	font-weight: bold;
+	font-family: SIMHEI, sans-serif;
+}
+
 h4 {
 	text-align: right;
 }
 
 h1, h2 {
-	font-family: SIMHEI;
+	font-family: SIMHEI, sans-serif;
 }
 
 h4, h5, h6 {
@@ -31,10 +38,6 @@ hr {
 }
 
 .pagenum {
-	display: none;
-}
-
-.withPN .pagenum {
 	position: absolute;
 	left: 91%;
 	width: 1.5em;
@@ -101,7 +104,7 @@ div.footnotes, sup, div.figure {
 	font-size: 150%;
 }
 
-.figure {
+figure {
 	text-align: center;
 	font-size: 90%;
 }
