@@ -1,4 +1,4 @@
-﻿body {
+body {
 	margin-left: 10%;
 	margin-right: 10%;
 }
@@ -114,11 +114,11 @@ img {
 	width: 80%;
 }
 
-img[src="images/Cover.jpg"], img[src="images/Frontispiece.jpg"], img[src="images/Pic05.jpg"], img[src="images/Pic08.jpg"] {
+img[src="images/Frontispiece.jpg"], img[src="images/Pic05.jpg"], img[src="images/Pic08.jpg"] {
 	width: 55%;
 }
 
-img[src="images/Perkins.jpg"] {
+img[src="images/Cover.jpg"], img[src="images/Perkins.jpg"] {
 	width: 40%;
 }
 
