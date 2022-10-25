@@ -1,4 +1,4 @@
-body {
+﻿body {
 	margin-left: 10%;
 	margin-right: 10%;
 }
@@ -77,7 +77,7 @@ ul {
 }
 
 pre {
-	margin-left: 60px;
+	margin-left: 4em;
 }
 
 div.footnotes, sup, div.figure {
@@ -103,6 +103,11 @@ div.footnotes, sup, div.figure {
 
 .larger {
 	font-size: 150%;
+}
+
+em {
+	font-style: normal;
+	font-family: cursive;
 }
 
 figure {
